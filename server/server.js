@@ -24,6 +24,10 @@ app.use('/api/admin', adminRoutes);
 
 const PORT = process.env.PORT || 5000;
 
+app.get('/', (req, res) => {
+  res.send("🚀 Loan Management API is running");
+});
+
 async function seedAdmin() {
   try {
     const adminEmail = process.env.ADMIN_EMAIL;
