@@ -12,8 +12,8 @@
       "dest": "/server.js"
     },
     {
-      "src": "/(.*)",
-      "status": 404
+      "src": "/",
+      "dest": "/server.js"
     }
   ]
 }
