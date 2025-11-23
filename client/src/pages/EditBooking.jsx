@@ -1,19 +1,31 @@
-// client/src/pages/EditBooking.jsx
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
-import { useParams, useNavigate } from "react-router-dom";
-import { format } from "date-fns";
+import { useNavigate, useParams } from "react-router-dom";
 
+// Parse local datetime without UTC shift
+function parseLocal(dtString) {
+  const [datePart, timePart] = dtString.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  return new Date(y, m - 1, d, hh, mm, 0);
+}
+
+// Format yyyy-mm-dd for input
+function formatDateInput(date) {
+  return date.toISOString().split("T")[0];
+}
+
+// Pad numbers
 function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
 export default function EditBooking() {
-  const { id } = useParams();
   const navigate = useNavigate();
+  const { id } = useParams();
 
   const [loading, setLoading] = useState(true);
-  const [booking, setBooking] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const [date, setDate] = useState("");
   const [hour, setHour] = useState("09");
@@ -22,101 +34,93 @@ export default function EditBooking() {
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
 
-  useEffect(() => {
-    load();
-  }, [id]);
-
-  async function load() {
+  // Load the existing booking details
+  async function loadBooking() {
     try {
-      setLoading(true);
-
       const res = await API.get("/bookings/me");
-      const found = res.data.find((b) => b._id === id);
-
-      if (!found) {
-        alert("Booking not found");
+      const booking = res.data.find((b) => b._id === id);
+      if (!booking) {
+        alert("Booking not found.");
         navigate("/mybookings");
         return;
       }
 
-      setBooking(found);
-      setCompany(found.company);
-      setRound(found.round);
+      const start = parseLocal(booking.slotStart);
+      const end = parseLocal(booking.slotEnd);
 
-      // STRICT LOCAL TIME — No UTC shift
-      const s = new Date(found.slotStart);
+      setDate(formatDateInput(start));
+      setHour(pad(start.getHours()));
+      setMinute(pad(start.getMinutes()));
 
-      setDate(format(s, "yyyy-MM-dd"));
-      setHour(pad(s.getHours()));
-      setMinute(pad(s.getMinutes()));
+      const diff = (end - start) / 60000; // minutes
+      setDuration(diff);
 
-      const mins = (new Date(found.slotEnd) - new Date(found.slotStart)) / 60000;
-      setDuration(mins);
-
+      setCompany(booking.company);
+      setRound(booking.round);
     } catch (err) {
       alert("Failed to load booking.");
-      navigate("/mybookings");
     } finally {
       setLoading(false);
     }
   }
 
+  useEffect(() => {
+    loadBooking();
+  }, []);
+
+  // Save updated booking
   async function submit(e) {
     e.preventDefault();
+    setSaving(true);
 
     try {
-      const startISO = new Date(`${date}T${pad(hour)}:${minute}:00`);
-      const endISO = new Date(startISO.getTime() + duration * 60000);
+      const start = new Date(`${date}T${hour}:${minute}:00`);
+      const end = new Date(start.getTime() + duration * 60000);
 
-      await API.put(`/bookings/${id}`, {
-        slotStart: startISO.toISOString(),
-        slotEnd: endISO.toISOString(),
+      const payload = {
+        slotStart: start.toISOString(),
+        slotEnd: end.toISOString(),
         company,
         round,
-      });
+      };
 
-      alert("Booking updated successfully.");
+      await API.put(`/bookings/${id}`, payload);
+
+      alert("Booking updated successfully!");
       navigate("/mybookings");
-
     } catch (err) {
       alert(err.response?.data?.msg || "Update failed");
+    } finally {
+      setSaving(false);
     }
   }
 
-  async function remove() {
-    if (!window.confirm("Delete this booking?")) return;
-
-    try {
-      // ❗ Correct student delete endpoint
-      await API.delete(`/bookings/${id}/student`);
-
-      alert("Booking deleted.");
-      navigate("/mybookings");
-
-    } catch (err) {
-      alert(err.response?.data?.msg || err.message);
-    }
-  }
-
-  if (loading) return <div>Loading…</div>;
-  if (!booking) return null;
-
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 9..20
   const minutes = ["00", "30"];
 
-  return (
-    <form className="max-w-md mx-auto bg-slate-800 p-6 rounded" onSubmit={submit}>
+  if (loading) {
+    return (
+      <div className="p-4 bg-slate-700 rounded inline-block mx-auto mt-10">
+        Loading booking…
+      </div>
+    );
+  }
 
-      {/* 🔙 BACK BUTTON */}
+  return (
+    <form
+      onSubmit={submit}
+      className="max-w-md mx-auto bg-slate-800 p-6 rounded mt-6"
+    >
+      {/* BACK BUTTON */}
       <button
         type="button"
         onClick={() => navigate("/mybookings")}
-        className="mb-4 px-3 py-1 bg-slate-700 rounded text-white hover:bg-slate-600"
+        className="mb-4 px-3 py-1 bg-slate-700 rounded hover:bg-slate-600"
       >
         ← Back to My Bookings
       </button>
 
-      <h2 className="text-xl mb-4 text-cyan-400">Edit Booking</h2>
+      <h2 className="text-xl mb-4 text-cyan-300">Edit Booking</h2>
 
       {/* DATE */}
       <label className="block text-sm mb-1">Date</label>
@@ -124,74 +128,78 @@ export default function EditBooking() {
         type="date"
         value={date}
         onChange={(e) => setDate(e.target.value)}
-        className="w-full p-2 mb-3 rounded bg-slate-700"
+        className="w-full p-2 rounded bg-slate-700 mb-3"
       />
 
       {/* TIME */}
       <div className="flex gap-2 mb-3">
-        <select
-          value={hour}
-          onChange={(e) => setHour(e.target.value)}
-          className="flex-1 p-2 rounded bg-slate-700"
-        >
-          {hours.map((h) => (
-            <option key={h} value={pad(h)}>
-              {pad(h)}
-            </option>
-          ))}
-        </select>
+        <div className="flex-1">
+          <label className="block text-sm mb-1">Hour</label>
+          <select
+            value={hour}
+            onChange={(e) => setHour(e.target.value)}
+            className="w-full p-2 rounded bg-slate-700"
+          >
+            {hours.map((h) => (
+              <option key={h} value={pad(h)}>
+                {pad(h)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <select
-          value={minute}
-          onChange={(e) => setMinute(e.target.value)}
-          className="w-24 p-2 rounded bg-slate-700"
-        >
-          {minutes.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={duration}
-          onChange={(e) => setDuration(Number(e.target.value))}
-          className="w-32 p-2 rounded bg-slate-700"
-        >
-          <option value={30}>30 minutes</option>
-          <option value={60}>1 hour</option>
-        </select>
+        <div className="w-28">
+          <label className="block text-sm mb-1">Minute</label>
+          <select
+            value={minute}
+            onChange={(e) => setMinute(e.target.value)}
+            className="w-full p-2 rounded bg-slate-700"
+          >
+            {minutes.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
+      {/* DURATION */}
+      <label className="block text-sm mb-1">Duration</label>
+      <select
+        value={duration}
+        onChange={(e) => setDuration(Number(e.target.value))}
+        className="w-full p-2 rounded bg-slate-700 mb-3"
+      >
+        <option value={30}>30 Minutes</option>
+        <option value={60}>1 Hour</option>
+      </select>
+
       {/* COMPANY */}
-      <label className="block text-sm mb-1">Company</label>
+      <label className="block text-sm mb-1">Company Name</label>
       <input
+        type="text"
         value={company}
         onChange={(e) => setCompany(e.target.value)}
-        className="w-full p-2 mb-3 rounded bg-slate-700"
+        className="w-full p-2 rounded bg-slate-700 mb-3"
       />
 
       {/* ROUND */}
       <label className="block text-sm mb-1">Round</label>
       <input
+        type="text"
         value={round}
         onChange={(e) => setRound(e.target.value)}
-        className="w-full p-2 mb-4 rounded bg-slate-700"
+        className="w-full p-2 rounded bg-slate-700 mb-4"
       />
 
-      <div className="flex gap-3">
-        <button className="px-3 py-1 bg-blue-600 rounded hover:bg-blue-500">
-          Save
-        </button>
-
-        <button
-          type="button"
-          onClick={remove}
-          className="px-3 py-1 bg-red-600 rounded hover:bg-red-500"
-        >
-          Delete
-        </button>
-      </div>
+      {/* SAVE BUTTON */}
+      <button
+        className="px-4 py-2 bg-cyan-600 rounded w-full hover:bg-cyan-500"
+        disabled={saving}
+      >
+        {saving ? "Saving…" : "Save Changes"}
+      </button>
     </form>
   );
 }
