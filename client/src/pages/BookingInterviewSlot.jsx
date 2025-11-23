@@ -50,6 +50,20 @@ export default function BookInterview() {
     e.preventDefault();
     setLoading(true);
 
+    // 🚫 VALIDATE COMPANY LENGTH
+    if (company.length > 25) {
+      alert("Company name cannot exceed 25 characters.");
+      setLoading(false);
+      return;
+    }
+
+    // 🚫 VALIDATE ROUND LENGTH
+    if (round.length > 25) {
+      alert("Round description cannot exceed 25 characters.");
+      setLoading(false);
+      return;
+    }
+
     const [Y, M, D] = date.split("-").map(Number);
 
     // Build local start & end
@@ -152,17 +166,19 @@ export default function BookInterview() {
         <option value={60}>1 Hour</option>
       </select>
 
-      <label>Company</label>
+      <label>Company (max 25 chars)</label>
       <input
         value={company}
         onChange={(e) => setCompany(e.target.value)}
+        maxLength={25}
         className="w-full p-2 mb-3 rounded bg-slate-700"
       />
 
-      <label>Round</label>
+      <label>Round (max 25 chars)</label>
       <input
         value={round}
         onChange={(e) => setRound(e.target.value)}
+        maxLength={25}
         className="w-full p-2 mb-4 rounded bg-slate-700"
       />
 
