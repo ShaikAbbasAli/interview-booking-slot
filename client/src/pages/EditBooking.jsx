@@ -43,9 +43,11 @@ export default function EditBooking() {
   const [date, setDate] = useState("");
   const [hour, setHour] = useState("09");
   const [minute, setMinute] = useState("00");
-  const [duration, setDuration] = useState(60);
+  const [duration, setDuration] = useState(30);
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
+
+  
 
   const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09–20
   const minutes = ["00", "30"];
