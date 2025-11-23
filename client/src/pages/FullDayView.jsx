@@ -4,6 +4,14 @@ import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
+// Local datetime parser (NO timezone shift)
+function parseLocal(dtString) {
+  const [datePart, timePart] = dtString.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  return new Date(y, m - 1, d, hh, mm, 0);
+}
+
 export default function FullDayView() {
   const navigate = useNavigate();
 
@@ -69,8 +77,9 @@ export default function FullDayView() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {slots.map((s) => {
-            const start = new Date(s.slotStart);
-            const end = new Date(s.slotEnd);
+            const start = parseLocal(s.slotStart);
+            const end = parseLocal(s.slotEnd);
+
             const isExpanded = expanded === s.slotStart;
 
             return (
@@ -82,7 +91,7 @@ export default function FullDayView() {
                   isExpanded ? "border-4 border-cyan-400 scale-105" : ""
                 }`}
               >
-                {/* HEADER (click to expand) */}
+                {/* HEADER */}
                 <div
                   className="cursor-pointer select-none"
                   onClick={() =>
@@ -130,7 +139,7 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* STUDENT: BOOK BUTTON */}
+                {/* STUDENT BUTTON */}
                 {!isAdmin && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -140,7 +149,7 @@ export default function FullDayView() {
                   </button>
                 )}
 
-                {/* ADMIN: STATUS LABEL */}
+                {/* ADMIN LABEL */}
                 {isAdmin && (
                   <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-sm text-slate-200">
                     {s.bookingsCount >= 6 ? "Slot Full" : "Seats Available"}
