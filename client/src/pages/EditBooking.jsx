@@ -1,5 +1,3 @@
-// client/src/pages/EditBooking.jsx
-
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { useParams, useNavigate } from "react-router-dom";
@@ -9,23 +7,23 @@ function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-// Build date safely in LOCAL, never UTC
+// Build Date in LOCAL (never UTC)
 function buildLocal(y, m, d, hh, mm) {
   return new Date(y, m - 1, d, hh, mm, 0, 0);
 }
 
-// Format Date → YYYY-MM-DDTHH:mm (LOCAL, no Z)
-function toLocalYYYYMMDDHHMM(date) {
+// Format LOCAL date as YYYY-MM-DDTHH:mm
+function toLocalString(dt) {
   return (
-    date.getFullYear() +
+    dt.getFullYear() +
     "-" +
-    pad(date.getMonth() + 1) +
+    pad(dt.getMonth() + 1) +
     "-" +
-    pad(date.getDate()) +
+    pad(dt.getDate()) +
     "T" +
-    pad(date.getHours()) +
+    pad(dt.getHours()) +
     ":" +
-    pad(date.getMinutes())
+    pad(dt.getMinutes())
   );
 }
 
@@ -43,17 +41,14 @@ export default function EditBooking() {
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
 
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09..20
+  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09–20
   const minutes = ["00", "30"];
 
-  // --------------------------
-  // Load existing booking
-  // --------------------------
+  // ---------------- LOAD BOOKING ----------------
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
-
         const res = await API.get("/bookings/me");
         const found = res.data.find((b) => b._id === id);
 
@@ -68,15 +63,17 @@ export default function EditBooking() {
         const s = new Date(found.slotStart);
         const e = new Date(found.slotEnd);
 
-        setCompany(found.company);
-        setRound(found.round);
-
+        // DATE MUST BE YYYY-MM-DD
         setDate(format(s, "yyyy-MM-dd"));
+
         setHour(pad(s.getHours()));
         setMinute(pad(s.getMinutes()));
 
         const diff = (e - s) / 60000;
         setDuration(diff === 30 ? 30 : 60);
+
+        setCompany(found.company);
+        setRound(found.round);
       } catch (err) {
         console.error(err);
         alert("Failed to load booking");
@@ -89,9 +86,7 @@ export default function EditBooking() {
     load();
   }, [id, navigate]);
 
-  // --------------------------
-  // Submit Update
-  // --------------------------
+  // ---------------- SUBMIT UPDATE ----------------
   async function submit(e) {
     e.preventDefault();
 
@@ -100,17 +95,13 @@ export default function EditBooking() {
       const h = Number(hour);
       const m = Number(minute);
 
-      // Build LOCAL START safely
+      // LOCAL START DATETIME
       const startDate = buildLocal(yyyy, mm, dd, h, m);
 
-      // Add duration
+      // ADD DURATION SAFELY
       const endDate = new Date(startDate.getTime() + duration * 60000);
 
-      // Convert to local string WITHOUT timezone shift
-      const startLocal = toLocalYYYYMMDDHHMM(startDate);
-      const endLocal = toLocalYYYYMMDDHHMM(endDate);
-
-      // Validate before sending to backend
+      // VALIDATE BEFORE SENDING
       if (endDate <= startDate) {
         alert("End must be after start");
         return;
@@ -126,10 +117,13 @@ export default function EditBooking() {
         return;
       }
 
-      // SEND UPDATE
+      // FORMAT FOR API
+      const slotStart = toLocalString(startDate);
+      const slotEnd = toLocalString(endDate);
+
       await API.put(`/bookings/${id}`, {
-        slotStart: startLocal,
-        slotEnd: endLocal,
+        slotStart,
+        slotEnd,
         company,
         round,
       });
@@ -142,9 +136,7 @@ export default function EditBooking() {
     }
   }
 
-  // --------------------------
-  // Delete
-  // --------------------------
+  // ---------------- DELETE ----------------
   async function remove() {
     if (!window.confirm("Delete this booking?")) return;
 
@@ -174,7 +166,7 @@ export default function EditBooking() {
 
       <form onSubmit={submit}>
         {/* DATE */}
-        <label className="block text-sm mb-1">Date</label>
+        <label>Date</label>
         <input
           type="date"
           value={date}
@@ -182,10 +174,10 @@ export default function EditBooking() {
           className="w-full p-2 mb-3 rounded bg-slate-700"
         />
 
-        {/* TIME + DURATION */}
+        {/* TIME */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1">
-            <label className="block text-sm mb-1">Hour</label>
+            <label>Hour</label>
             <select
               value={hour}
               onChange={(e) => setHour(e.target.value)}
@@ -200,7 +192,7 @@ export default function EditBooking() {
           </div>
 
           <div className="w-24">
-            <label className="block text-sm mb-1">Minute</label>
+            <label>Minute</label>
             <select
               value={minute}
               onChange={(e) => setMinute(e.target.value)}
@@ -215,7 +207,7 @@ export default function EditBooking() {
           </div>
 
           <div className="w-32">
-            <label className="block text-sm mb-1">Duration</label>
+            <label>Duration</label>
             <select
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
@@ -228,7 +220,7 @@ export default function EditBooking() {
         </div>
 
         {/* COMPANY */}
-        <label className="block text-sm mb-1">Company</label>
+        <label>Company</label>
         <input
           value={company}
           onChange={(e) => setCompany(e.target.value)}
@@ -236,7 +228,7 @@ export default function EditBooking() {
         />
 
         {/* ROUND */}
-        <label className="block text-sm mb-1">Round</label>
+        <label>Round</label>
         <input
           value={round}
           onChange={(e) => setRound(e.target.value)}
