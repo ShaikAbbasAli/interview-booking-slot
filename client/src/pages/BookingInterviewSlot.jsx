@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+// client/src/pages/BookInterview.jsx
+import React, { useState } from "react";
 import API from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -10,12 +11,12 @@ export default function BookInterview() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Read URL params
+  // Read URL params (?date=YYYY-MM-DD&start=YYYY-MM-DDTHH:mm)
   const params = new URLSearchParams(location.search);
   const preDate = params.get("date");
   const preStart = params.get("start");
 
-  // If start parameter provided → convert ISO to hour/min
+  // If start parameter is provided → convert to hour/min for form
   let preHour = null;
   let preMinute = null;
   if (preStart) {
@@ -24,6 +25,7 @@ export default function BookInterview() {
     preMinute = pad(d.getMinutes());
   }
 
+  // Default date → today
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = pad(today.getMonth() + 1);
@@ -33,23 +35,32 @@ export default function BookInterview() {
   const [date, setDate] = useState(preDate || defaultDate);
   const [hour, setHour] = useState(preHour || "09");
   const [minute, setMinute] = useState(preMinute || "00");
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(30); // minutes
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 9..20
+  // 9:00 → 20:30
+  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
   const minutes = ["00", "30"];
 
-  const timeLocked = !!preStart; // If user came from FullDayView → lock time fields
+  // If user opens via FullDayView (Book Slot button), lock date/time
+  const timeLocked = !!preStart;
 
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const startISO = new Date(`${date}T${hour}:${minute}:00`);
-      const endISO = new Date(startISO.getTime() + duration * 60000);
+      // Build local start time without Z
+      const startLocal = `${date}T${hour}:${minute}`;
+      const startDateObj = new Date(startLocal);
+
+      // Calculate end time
+      const endDateObj = new Date(startDateObj.getTime() + duration * 60000);
+      const endLocal = `${date}T${pad(endDateObj.getHours())}:${pad(
+        endDateObj.getMinutes()
+      )}`;
 
       if (!company.trim() || !round.trim()) {
         alert("Company and Round are required.");
@@ -58,8 +69,8 @@ export default function BookInterview() {
       }
 
       const payload = {
-        slotStart: startISO.toISOString(),
-        slotEnd: endISO.toISOString(),
+        slotStart: startLocal, // <--- NO toISOString()
+        slotEnd: endLocal,     // <--- NO toISOString()
         company,
         round,
       };
@@ -76,7 +87,10 @@ export default function BookInterview() {
   };
 
   return (
-    <form className="max-w-md mx-auto bg-slate-800 p-6 rounded" onSubmit={submit}>
+    <form
+      className="max-w-md mx-auto bg-slate-800 p-6 rounded"
+      onSubmit={submit}
+    >
       <h2 className="text-xl mb-4">Book Interview</h2>
 
       {/* DATE */}
@@ -86,7 +100,9 @@ export default function BookInterview() {
         value={date}
         disabled={timeLocked}
         onChange={(e) => setDate(e.target.value)}
-        className={`w-full p-2 mb-3 rounded bg-slate-700 ${timeLocked ? "opacity-60" : ""}`}
+        className={`w-full p-2 mb-3 rounded bg-slate-700 ${
+          timeLocked ? "opacity-60" : ""
+        }`}
       />
 
       {/* TIME SELECTION */}
@@ -97,7 +113,9 @@ export default function BookInterview() {
             value={hour}
             disabled={timeLocked}
             onChange={(e) => setHour(e.target.value)}
-            className={`w-full p-2 rounded bg-slate-700 ${timeLocked ? "opacity-60" : ""}`}
+            className={`w-full p-2 rounded bg-slate-700 ${
+              timeLocked ? "opacity-60" : ""
+            }`}
           >
             {hours.map((h) => (
               <option key={h} value={pad(h)}>
@@ -113,7 +131,9 @@ export default function BookInterview() {
             value={minute}
             disabled={timeLocked}
             onChange={(e) => setMinute(e.target.value)}
-            className={`w-full p-2 rounded bg-slate-700 ${timeLocked ? "opacity-60" : ""}`}
+            className={`w-full p-2 rounded bg-slate-700 ${
+              timeLocked ? "opacity-60" : ""
+            }`}
           >
             {minutes.map((m) => (
               <option key={m} value={m}>
@@ -142,7 +162,7 @@ export default function BookInterview() {
         value={company}
         onChange={(e) => setCompany(e.target.value)}
         className="w-full p-2 mb-3 rounded bg-slate-700"
-        placeholder="e.g. Google"
+        placeholder="e.g. TCS"
       />
 
       {/* ROUND */}
@@ -152,7 +172,7 @@ export default function BookInterview() {
         value={round}
         onChange={(e) => setRound(e.target.value)}
         className="w-full p-2 mb-4 rounded bg-slate-700"
-        placeholder="e.g. Technical Round 1"
+        placeholder="e.g. L1"
       />
 
       <button
@@ -163,8 +183,8 @@ export default function BookInterview() {
       </button>
 
       <div className="text-xs text-slate-400 mt-2">
-        You may book up to 5 slots per day.  
-        All interviews must be between 9:00 AM and 9:00 PM.
+        You may book up to 5 slots per day. All interviews must be between 9:00
+        AM and 9:00 PM.
       </div>
     </form>
   );
