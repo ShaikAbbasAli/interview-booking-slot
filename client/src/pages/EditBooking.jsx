@@ -7,17 +7,9 @@ function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-// Parse a LOCAL datetime string WITHOUT timezone shift
-function parseLocal(dtString) {
-  const [datePart, timePart] = dtString.split("T");
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm] = timePart.split(":").map(Number);
-  return new Date(y, m - 1, d, hh, mm, 0, 0);
-}
-
-// Build LOCAL datetime safely
-function buildLocal(y, m, d, hh, mm) {
-  return new Date(y, m - 1, d, hh, mm, 0, 0);
+// Convert UTC → IST
+function toIST(date) {
+  return new Date(date.getTime() + 5.5 * 60 * 60 * 1000);
 }
 
 // Convert LOCAL date to "YYYY-MM-DDTHH:mm"
@@ -35,6 +27,11 @@ function toLocalString(date) {
   );
 }
 
+// Build IST date (local) manually
+function buildIST(y, m, d, hh, mm) {
+  return new Date(y, m - 1, d, hh, mm, 0, 0);
+}
+
 export default function EditBooking() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -47,12 +44,10 @@ export default function EditBooking() {
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
 
-  
-
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09–20
+  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
   const minutes = ["00", "30"];
 
-  // ------------------ LOAD EXISTING BOOKING ------------------
+  // ------------------ LOAD EXISTING BOOKING (UTC → IST) ------------------
   useEffect(() => {
     async function load() {
       try {
@@ -65,14 +60,17 @@ export default function EditBooking() {
           return;
         }
 
-        const s = parseLocal(found.slotStart);
-        const e = parseLocal(found.slotEnd);
+        // Backend stores UTC, convert → IST
+        const startUTC = new Date(found.slotStart);
+        const endUTC = new Date(found.slotEnd);
+
+        const s = toIST(startUTC); // correct IST conversion
+        const e = toIST(endUTC);
 
         setDate(format(s, "yyyy-MM-dd"));
         setHour(pad(s.getHours()));
         setMinute(pad(s.getMinutes()));
-        setDuration((e - s) / 60000);
-
+        setDuration((e - s) / 60000); // safe
         setCompany(found.company);
         setRound(found.round);
       } catch {
@@ -85,16 +83,16 @@ export default function EditBooking() {
     load();
   }, [id, navigate]);
 
-  // ------------------ SUBMIT UPDATE ------------------
+  // ------------------ SUBMIT UPDATE (IST → UTC on backend) ------------------
   async function submit(e) {
     e.preventDefault();
 
     const [Y, M, D] = date.split("-").map(Number);
 
-    // Build start in local time
-    const start = buildLocal(Y, M, D, Number(hour), Number(minute));
+    // Build IST start
+    const startIST = buildIST(Y, M, D, Number(hour), Number(minute));
 
-    // Build end WITHOUT timezone problems
+    // Build IST end safely
     let endHour = Number(hour);
     let endMinute = Number(minute) + duration;
 
@@ -103,19 +101,19 @@ export default function EditBooking() {
       endMinute = endMinute % 60;
     }
 
-    const end = buildLocal(Y, M, D, endHour, endMinute);
+    const endIST = buildIST(Y, M, D, endHour, endMinute);
 
-    // Validate
-    if (end <= start) return alert("End must be after start");
+    // Validation
+    if (endIST <= startIST) return alert("End must be after start");
     if (endHour >= 21) return alert("End must be before 9 PM");
-    if (![0, 30].includes(start.getMinutes()))
+    if (![0, 30].includes(startIST.getMinutes()))
       return alert("Start must align to :00/:30");
-    if (![0, 30].includes(end.getMinutes()))
+    if (![0, 30].includes(endIST.getMinutes()))
       return alert("End must align to :00/:30");
 
     const payload = {
-      slotStart: toLocalString(start), // Always IST
-      slotEnd: toLocalString(end),     // Always IST
+      slotStart: toLocalString(startIST), // sending IST
+      slotEnd: toLocalString(endIST),     // sending IST
       company,
       round,
     };
@@ -129,7 +127,7 @@ export default function EditBooking() {
     }
   }
 
-  // ------------------ DELETE ------------------
+  // ------------------ DELETE BOOKING ------------------
   async function remove() {
     if (!window.confirm("Delete this booking?")) return;
     await API.delete(`/bookings/${id}/student`);
