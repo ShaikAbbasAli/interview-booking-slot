@@ -1,4 +1,3 @@
-// client/src/pages/FullDayView.jsx
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format } from "date-fns";
@@ -82,14 +81,16 @@ export default function FullDayView() {
 
             const isExpanded = expanded === s.slotStart;
 
+            // 🚫 PAST SLOT CHECK
+            const now = new Date();
+            const isPastSlot = start < now;
+
             return (
               <div
                 key={s.slotStart}
                 className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${colorForCount(
                   s.bookingsCount
-                )} ${
-                  isExpanded ? "border-4 border-cyan-400 scale-105" : ""
-                }`}
+                )} ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
               >
                 {/* HEADER */}
                 <div
@@ -139,14 +140,21 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* STUDENT BUTTON */}
-                {!isAdmin && (
+                {/* STUDENT BUTTON OR PAST BADGE */}
+                {!isAdmin && !isPastSlot && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
                     onClick={() => book(s.slotStart)}
                   >
                     Book Slot
                   </button>
+                )}
+
+                {/* 🚫 PAST SLOT LABEL */}
+                {!isAdmin && isPastSlot && (
+                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
+                    Past Slot
+                  </div>
                 )}
 
                 {/* ADMIN LABEL */}
