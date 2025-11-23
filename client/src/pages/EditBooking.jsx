@@ -2,13 +2,20 @@ import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { useNavigate, useParams } from "react-router-dom";
 
-// ---- PARSE LOCAL ISO WITHOUT CHANGING TIME ----
-function parseLocalISO(iso) {
-  const [date, time] = iso.split("T");
-  const [hour, minute] = time.split(":").map((x) => parseInt(x, 10));
-  return { date, hour, minute };
+// Parse local datetime without UTC shift
+function parseLocal(dtString) {
+  const [datePart, timePart] = dtString.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  return new Date(y, m - 1, d, hh, mm, 0);
 }
 
+// Format yyyy-mm-dd for input
+function formatDateInput(date) {
+  return date.toISOString().split("T")[0];
+}
+
+// Pad numbers
 function pad(n) {
   return n.toString().padStart(2, "0");
 }
@@ -17,49 +24,39 @@ export default function EditBooking() {
   const navigate = useNavigate();
   const { id } = useParams();
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [date, setDate] = useState("");
   const [hour, setHour] = useState("09");
   const [minute, setMinute] = useState("00");
   const [duration, setDuration] = useState(30);
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  // 9AM – 8PM
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
-  const minutes = ["00", "30"];
-
-  // ---------- LOAD BOOKING ----------
-  useEffect(() => {
-    loadBooking();
-  }, []);
-
+  // Load the existing booking details
   async function loadBooking() {
     try {
       const res = await API.get("/bookings/me");
-      const found = res.data.find((b) => b._id === id);
-
-      if (!found) {
+      const booking = res.data.find((b) => b._id === id);
+      if (!booking) {
         alert("Booking not found.");
         navigate("/mybookings");
         return;
       }
 
-      const start = parseLocalISO(found.slotStart);
-      const end = parseLocalISO(found.slotEnd);
+      const start = parseLocal(booking.slotStart);
+      const end = parseLocal(booking.slotEnd);
 
-      const startDate = start.date;
+      setDate(formatDateInput(start));
+      setHour(pad(start.getHours()));
+      setMinute(pad(start.getMinutes()));
 
-      // Duration in minutes
-      const d =
-        (end.hour * 60 + end.minute) - (start.hour * 60 + start.minute);
+      const diff = (end - start) / 60000; // minutes
+      setDuration(diff);
 
-      setDate(startDate);
-      setHour(pad(start.hour));
-      setMinute(pad(start.minute));
-      setDuration(d);
-      setCompany(found.company);
-      setRound(found.round);
+      setCompany(booking.company);
+      setRound(booking.round);
     } catch (err) {
       alert("Failed to load booking.");
     } finally {
@@ -67,56 +64,63 @@ export default function EditBooking() {
     }
   }
 
-  // ---------- SAVE ----------
-  async function saveBooking() {
-    try {
-      const startISO = `${date}T${hour}:${minute}`;
-      const endISO = new Date(
-        new Date(`${startISO}:00`).getTime() + duration * 60000
-      )
-        .toISOString()
-        .slice(0, 16);
+  useEffect(() => {
+    loadBooking();
+  }, []);
 
-      await API.put(`/bookings/${id}`, {
-        slotStart: startISO,
-        slotEnd: endISO,
+  // Save updated booking
+  async function submit(e) {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const start = new Date(`${date}T${hour}:${minute}:00`);
+      const end = new Date(start.getTime() + duration * 60000);
+
+      const payload = {
+        slotStart: start.toISOString(),
+        slotEnd: end.toISOString(),
         company,
         round,
-      });
+      };
+
+      await API.put(`/bookings/${id}`, payload);
 
       alert("Booking updated successfully!");
       navigate("/mybookings");
     } catch (err) {
       alert(err.response?.data?.msg || "Update failed");
+    } finally {
+      setSaving(false);
     }
   }
 
-  // ---------- DELETE ----------
-  async function deleteBooking() {
-    if (!window.confirm("Delete this booking?")) return;
+  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 9..20
+  const minutes = ["00", "30"];
 
-    try {
-      await API.delete(`/bookings/${id}/student`);
-      alert("Booking deleted.");
-      navigate("/mybookings");
-    } catch (err) {
-      alert("Delete failed.");
-    }
+  if (loading) {
+    return (
+      <div className="p-4 bg-slate-700 rounded inline-block mx-auto mt-10">
+        Loading booking…
+      </div>
+    );
   }
-
-  if (loading)
-    return <div className="p-4 bg-slate-700 rounded">Loading…</div>;
 
   return (
-    <div className="max-w-md mx-auto bg-slate-800 p-6 rounded mt-4">
+    <form
+      onSubmit={submit}
+      className="max-w-md mx-auto bg-slate-800 p-6 rounded mt-6"
+    >
+      {/* BACK BUTTON */}
       <button
+        type="button"
         onClick={() => navigate("/mybookings")}
-        className="mb-4 px-3 py-1 bg-slate-700 rounded"
+        className="mb-4 px-3 py-1 bg-slate-700 rounded hover:bg-slate-600"
       >
         ← Back to My Bookings
       </button>
 
-      <h2 className="text-xl mb-4 text-cyan-400">Edit Booking</h2>
+      <h2 className="text-xl mb-4 text-cyan-300">Edit Booking</h2>
 
       {/* DATE */}
       <label className="block text-sm mb-1">Date</label>
@@ -124,7 +128,7 @@ export default function EditBooking() {
         type="date"
         value={date}
         onChange={(e) => setDate(e.target.value)}
-        className="w-full p-2 mb-3 bg-slate-700 rounded"
+        className="w-full p-2 rounded bg-slate-700 mb-3"
       />
 
       {/* TIME */}
@@ -165,19 +169,19 @@ export default function EditBooking() {
       <select
         value={duration}
         onChange={(e) => setDuration(Number(e.target.value))}
-        className="w-full p-2 mb-3 bg-slate-700 rounded"
+        className="w-full p-2 rounded bg-slate-700 mb-3"
       >
         <option value={30}>30 Minutes</option>
         <option value={60}>1 Hour</option>
       </select>
 
       {/* COMPANY */}
-      <label className="block text-sm mb-1">Company</label>
+      <label className="block text-sm mb-1">Company Name</label>
       <input
         type="text"
         value={company}
         onChange={(e) => setCompany(e.target.value)}
-        className="w-full p-2 mb-3 bg-slate-700 rounded"
+        className="w-full p-2 rounded bg-slate-700 mb-3"
       />
 
       {/* ROUND */}
@@ -186,24 +190,16 @@ export default function EditBooking() {
         type="text"
         value={round}
         onChange={(e) => setRound(e.target.value)}
-        className="w-full p-2 mb-4 bg-slate-700 rounded"
+        className="w-full p-2 rounded bg-slate-700 mb-4"
       />
 
-      <div className="flex gap-3">
-        <button
-          onClick={saveBooking}
-          className="px-3 py-2 bg-blue-600 rounded hover:bg-blue-500"
-        >
-          Save
-        </button>
-
-        <button
-          onClick={deleteBooking}
-          className="px-3 py-2 bg-red-600 rounded hover:bg-red-500"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
+      {/* SAVE BUTTON */}
+      <button
+        className="px-4 py-2 bg-cyan-600 rounded w-full hover:bg-cyan-500"
+        disabled={saving}
+      >
+        {saving ? "Saving…" : "Save Changes"}
+      </button>
+    </form>
   );
 }
