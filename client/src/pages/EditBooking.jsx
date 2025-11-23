@@ -7,12 +7,7 @@ function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-// Build IST date
-function buildIST(y, m, d, hh, mm) {
-  return new Date(y, m - 1, d, hh, mm, 0, 0);
-}
-
-// Convert Date → IST ISO with timezone
+// Convert Date → IST string with timezone
 function toISTString(date) {
   return (
     date.getFullYear() +
@@ -44,7 +39,7 @@ export default function EditBooking() {
   const minutes = ["00", "30"];
 
   /* -------------------------------------------------------
-     LOAD BOOKING (Backend returns IST already)
+     LOAD BOOKING (backend already returns IST)
   --------------------------------------------------------- */
   useEffect(() => {
     async function load() {
@@ -58,14 +53,13 @@ export default function EditBooking() {
           return;
         }
 
-        // Backend returns IST already
         const sIST = new Date(found.slotStart);
         const eIST = new Date(found.slotEnd);
 
         setDate(format(sIST, "yyyy-MM-dd"));
         setHour(pad(sIST.getHours()));
         setMinute(pad(sIST.getMinutes()));
-        setDuration((eIST - sIST) / 60000);
+        setDuration((eIST - sIST) / 60000); // difference in minutes
 
         setCompany(found.company);
         setRound(found.round);
@@ -81,38 +75,30 @@ export default function EditBooking() {
   }, [id, navigate]);
 
   /* -------------------------------------------------------
-     SUBMIT BOOKING (IST → IST with +05:30)
+     SUBMIT (slotEnd = slotStart + duration)
   --------------------------------------------------------- */
   async function submit(e) {
     e.preventDefault();
 
     const [Y, M, D] = date.split("-").map(Number);
 
-    // Start time IST
-    const startIST = buildIST(Y, M, D, Number(hour), Number(minute));
+    // Build slotStart in IST normally (local time)
+    const startIST = new Date(Y, M - 1, D, Number(hour), Number(minute));
 
-    // Calculate end IST
-    let endHour = Number(hour);
-    let endMinute = Number(minute) + duration;
-
-    if (endMinute >= 60) {
-      endHour += Math.floor(endMinute / 60);
-      endMinute %= 60;
-    }
-
-    const endIST = buildIST(Y, M, D, endHour, endMinute);
+    // slotEnd = slotStart + duration minutes
+    const endIST = new Date(startIST.getTime() + duration * 60000);
 
     // Validations
     if (endIST <= startIST) return alert("End must be after start");
-    if (endHour >= 21) return alert("End must be before 9 PM IST");
+    if (endIST.getHours() >= 21) return alert("End must be before 9 PM IST");
     if (![0, 30].includes(startIST.getMinutes()))
-      return alert("Start must align to :00/:30");
+      return alert("Start minutes must be :00 or :30");
     if (![0, 30].includes(endIST.getMinutes()))
-      return alert("End must align to :00/:30");
+      return alert("End minutes must be :00 or :30");
 
     const payload = {
-      slotStart: toISTString(startIST),
-      slotEnd: toISTString(endIST),
+      slotStart: toISTString(startIST), // IST with timezone
+      slotEnd: toISTString(endIST),     // IST with timezone
       company,
       round,
     };
