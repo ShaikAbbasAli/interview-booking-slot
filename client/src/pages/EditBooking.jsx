@@ -7,12 +7,7 @@ function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-// Convert UTC → IST (5h 30m offset)
-function toIST(dateUTC) {
-  return new Date(dateUTC.getTime() + 5.5 * 60 * 60 * 1000);
-}
-
-// Convert local IST Date → "YYYY-MM-DDTHH:mm"
+// Convert Date → "YYYY-MM-DDTHH:mm"
 function toLocalString(date) {
   return (
     date.getFullYear() +
@@ -27,7 +22,7 @@ function toLocalString(date) {
   );
 }
 
-// Build an IST date manually
+// Build IST date from Y-M-D H:M
 function buildIST(y, m, d, hh, mm) {
   return new Date(y, m - 1, d, hh, mm, 0, 0);
 }
@@ -47,9 +42,9 @@ export default function EditBooking() {
   const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09–20
   const minutes = ["00", "30"];
 
-  /* -------------------------------------------------------
-     LOAD BOOKING (Convert UTC → IST)
-  --------------------------------------------------------- */
+  /* ----------------------------------------------
+     LOAD BOOKING — backend already returns IST
+  ------------------------------------------------ */
   useEffect(() => {
     async function load() {
       try {
@@ -62,14 +57,10 @@ export default function EditBooking() {
           return;
         }
 
-        // Backend returns UTC — convert to IST
-        const startUTC = new Date(found.slotStart);
-        const endUTC = new Date(found.slotEnd);
+        // Backend already returns IST — no conversion needed
+        const sIST = new Date(found.slotStart);
+        const eIST = new Date(found.slotEnd);
 
-        const sIST = toIST(startUTC);
-        const eIST = toIST(endUTC);
-
-        // Fill form
         setDate(format(sIST, "yyyy-MM-dd"));
         setHour(pad(sIST.getHours()));
         setMinute(pad(sIST.getMinutes()));
@@ -88,9 +79,9 @@ export default function EditBooking() {
     load();
   }, [id, navigate]);
 
-  /* -------------------------------------------------------
-     SUBMIT UPDATED BOOKING (IST → backend as IST string)
-  --------------------------------------------------------- */
+  /* ----------------------------------------------
+     SUBMIT UPDATED BOOKING — IST → IST string
+  ------------------------------------------------ */
   async function submit(e) {
     e.preventDefault();
 
@@ -98,7 +89,7 @@ export default function EditBooking() {
 
     const startIST = buildIST(Y, M, D, Number(hour), Number(minute));
 
-    // Build end time correctly
+    // Calculate end IST
     let endHour = Number(hour);
     let endMinute = Number(minute) + duration;
 
@@ -109,7 +100,7 @@ export default function EditBooking() {
 
     const endIST = buildIST(Y, M, D, endHour, endMinute);
 
-    // Validation
+    // Validations
     if (endIST <= startIST) return alert("End must be after start");
     if (endHour >= 21) return alert("End must be before 9 PM IST");
     if (![0, 30].includes(startIST.getMinutes()))
@@ -118,8 +109,8 @@ export default function EditBooking() {
       return alert("End must align to :00/:30");
 
     const payload = {
-      slotStart: toLocalString(startIST), // IST string
-      slotEnd: toLocalString(endIST), // IST string
+      slotStart: toLocalString(startIST),
+      slotEnd: toLocalString(endIST),
       company,
       round,
     };
@@ -133,9 +124,9 @@ export default function EditBooking() {
     }
   }
 
-  /* -------------------------------------------------------
+  /* ----------------------------------------------
      DELETE BOOKING
-  --------------------------------------------------------- */
+  ------------------------------------------------ */
   async function remove() {
     if (!window.confirm("Delete this booking?")) return;
     await API.delete(`/bookings/${id}/student`);
