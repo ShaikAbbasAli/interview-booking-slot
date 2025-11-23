@@ -1,4 +1,3 @@
-// client/src/pages/MyBookings.jsx
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format } from "date-fns";
@@ -47,9 +46,19 @@ export default function MyBookings() {
             const start = parseLocal(b.slotStart);
             const end = parseLocal(b.slotEnd);
 
+            const now = new Date();
+
+            // ⛔ BLOCK EDIT ONLY IF DATE < TODAY (ignore time)
+            const bookingDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            const isPastDate = bookingDate < todayDate;
+
             return (
               <div key={b._id} className="p-4 bg-slate-800 rounded-xl">
-                <div className="text-lg text-cyan-300">{format(start, "dd MMM yyyy")}</div>
+                <div className="text-lg text-cyan-300">
+                  {format(start, "dd MMM yyyy")}
+                </div>
 
                 <div className="mt-1">
                   <b>Time:</b> {format(start, "hh:mm a")} – {format(end, "hh:mm a")}
@@ -64,19 +73,29 @@ export default function MyBookings() {
                 </div>
 
                 <div className="flex gap-3 mt-3">
-                  <button
-                    onClick={() => navigate(`/edit-booking/${b._id}`)}
-                    className="px-3 py-1 bg-blue-600 rounded"
-                  >
-                    Edit
-                  </button>
 
+                  {/* EDIT BUTTON — disabled only for past DAYS */}
+                  {!isPastDate ? (
+                    <button
+                      onClick={() => navigate(`/edit-booking/${b._id}`)}
+                      className="px-3 py-1 bg-blue-600 rounded"
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <div className="px-3 py-1 bg-slate-700 rounded text-slate-400">
+                      Past Date
+                    </div>
+                  )}
+
+                  {/* CANCEL always allowed */}
                   <button
                     onClick={() => deleteBooking(b._id)}
                     className="px-3 py-1 bg-red-600 rounded"
                   >
                     Cancel
                   </button>
+
                 </div>
               </div>
             );
