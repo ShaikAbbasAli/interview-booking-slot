@@ -5,98 +5,71 @@ import Booking from "../models/Booking.js";
 const router = express.Router();
 
 /* ---------------------------------------------------------
-   IST / UTC HELPERS
-   - Frontend sends IST like "2025-11-23T15:00"
-   - Backend converts IST -> UTC for DB
-   - Backend converts UTC -> IST when sending to frontend
+   IST <-> UTC HELPERS
 --------------------------------------------------------- */
 
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // 5h 30m
+const IST_OFFSET = 5.5 * 60 * 60 * 1000; // 5h30m
 
-function pad(n) {
-  return String(n).padStart(2, "0");
-}
+const pad = (n) => String(n).padStart(2, "0");
 
-/**
- * Convert IST "YYYY-MM-DDTHH:mm" string -> UTC Date
- * e.g. "2025-11-23T15:00" (IST) -> 2025-11-23T09:30:00.000Z
- */
+/* Convert IST string -> UTC Date */
 function istStringToUTC(iso) {
   const [datePart, timePart] = iso.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm] = timePart.split(":").map(Number);
 
-  // Build an intermediate Date as if the IST time were UTC
-  const utcAsIST = new Date(Date.UTC(y, m - 1, d, hh, mm));
-  // Then subtract IST offset to get the actual UTC instant
-  return new Date(utcAsIST.getTime() - IST_OFFSET_MS);
+  // Build as if IST were UTC, then subtract offset
+  const fakeUTC = new Date(Date.UTC(y, m - 1, d, hh, mm));
+  return new Date(fakeUTC.getTime() - IST_OFFSET);
 }
 
-/**
- * Convert UTC Date -> IST "YYYY-MM-DDTHH:mm" string
- */
+/* Convert UTC Date -> IST "YYYY-MM-DDTHH:mm" */
 function toISTString(dateUTC) {
-  const istMs = dateUTC.getTime() + IST_OFFSET_MS;
-  const ist = new Date(istMs);
-
-  const y = ist.getUTCFullYear();
-  const m = ist.getUTCMonth() + 1;
-  const d = ist.getUTCDate();
-  const hh = ist.getUTCHours();
-  const mm = ist.getUTCMinutes();
+  const ms = dateUTC.getTime() + IST_OFFSET;
+  const ist = new Date(ms);
 
   return (
-    y +
+    ist.getUTCFullYear() +
     "-" +
-    pad(m) +
+    pad(ist.getUTCMonth() + 1) +
     "-" +
-    pad(d) +
+    pad(ist.getUTCDate()) +
     "T" +
-    pad(hh) +
+    pad(ist.getUTCHours()) +
     ":" +
-    pad(mm)
+    pad(ist.getUTCMinutes())
   );
 }
 
-/**
- * Check alignment to :00 or :30 in IST
- */
+/* Extract midnight of IST day in UTC */
+function dayStartEndIST(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+
+  const fakeUTC = new Date(Date.UTC(y, m - 1, d, 0, 0));
+  const start = new Date(fakeUTC.getTime() - IST_OFFSET);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  return { start, end };
+}
+
+/* Check alignment (:00 or :30) in IST */
 function isAlignedTo30IST(dateUTC) {
-  const istMs = dateUTC.getTime() + IST_OFFSET_MS;
-  const ist = new Date(istMs);
+  const ms = dateUTC.getTime() + IST_OFFSET;
+  const ist = new Date(ms);
   const mins = ist.getUTCMinutes();
   return mins === 0 || mins === 30;
 }
 
-/**
- * Working hours in IST: 09:00 <= time < 21:00
- */
+/* Check working hours in IST */
 function inWorkingHoursIST(dateUTC) {
-  const istMs = dateUTC.getTime() + IST_OFFSET_MS;
-  const ist = new Date(istMs);
-  const totalMins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
-  return totalMins >= 9 * 60 && totalMins < 21 * 60;
-}
-
-/**
- * Given an IST calendar date string "YYYY-MM-DD", return
- * UTC start/end of that IST day.
- *  - start = that date at 00:00 IST in UTC
- *  - end = next date at 00:00 IST in UTC
- */
-function dayStartEndIST(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-
-  // "00:00 IST" taken as UTC, then minus offset => real UTC instant
-  const utcAsISTMidnight = new Date(Date.UTC(y, m - 1, d, 0, 0));
-  const startUTC = new Date(utcAsISTMidnight.getTime() - IST_OFFSET_MS);
-  const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000);
-
-  return { start: startUTC, end: endUTC };
+  const ms = dateUTC.getTime() + IST_OFFSET;
+  const ist = new Date(ms);
+  const mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  return mins >= 540 && mins < 1260; // 09:00–21:00 IST
 }
 
 /* ---------------------------------------------------------
-   GET /bookings/me — student bookings (return in IST)
+   GET /bookings/me (return IST)
 --------------------------------------------------------- */
 router.get("/me", auth, async (req, res) => {
   try {
@@ -104,7 +77,6 @@ router.get("/me", auth, async (req, res) => {
       .sort({ slotStart: 1 })
       .lean();
 
-    // Convert stored UTC dates to IST strings for the frontend
     const mapped = list.map((b) => ({
       ...b,
       slotStart: toISTString(new Date(b.slotStart)),
@@ -113,63 +85,59 @@ router.get("/me", auth, async (req, res) => {
 
     res.json(mapped);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /* ---------------------------------------------------------
-   GET /bookings/slots?date=YYYY-MM-DD
-   Generate 9AM → 9PM slots in IST (no "Z" on frontend)
+   GET /bookings/slots?date=YYYY-MM-DD (IST)
 --------------------------------------------------------- */
 router.get("/slots", auth, async (req, res) => {
   try {
-    const { date } = req.query; // "YYYY-MM-DD" in IST (from frontend)
+    const { date } = req.query;
     if (!date) return res.status(400).json({ msg: "Date required" });
 
     if (req.user.role === "student" && req.user.status !== "approved") {
       return res.status(403).json({ msg: "Account not approved" });
     }
 
-    // Day bounds in UTC for that IST date
-    const { start: dayStartUTC, end: dayEndUTC } = dayStartEndIST(date);
-
-    // Generate 30-min windows from 09:00 to 21:00 IST.
-    // In UTC: start from dayStartUTC + 9h, end before dayStartUTC + 21h.
+    const { start: dayStartUTC } = dayStartEndIST(date);
     const slots = [];
-    let curUTC = new Date(dayStartUTC.getTime() + 9 * 60 * 60 * 1000);
-    const limitUTC = new Date(dayStartUTC.getTime() + 21 * 60 * 60 * 1000);
 
-    while (curUTC < limitUTC) {
-      const endUTC = new Date(curUTC.getTime() + 30 * 60000);
-      if (endUTC > limitUTC) break;
+    let curUTC = new Date(dayStartUTC.getTime() + 9 * 3600000);
+    const endUTC = new Date(dayStartUTC.getTime() + 21 * 3600000);
+
+    while (curUTC < endUTC) {
+      let next = new Date(curUTC.getTime() + 30 * 60000);
+      if (next > endUTC) break;
 
       slots.push({
-        slotStart: toISTString(curUTC), // send as IST string
-        slotEnd: toISTString(endUTC),   // send as IST string
+        slotStart: toISTString(curUTC),
+        slotEnd: toISTString(next),
         bookingsCount: 0,
         bookings: [],
       });
 
-      curUTC = endUTC;
+      curUTC = next;
     }
 
-    // Load bookings from DB in that UTC day range
+    const { start: rangeStart, end: rangeEnd } = dayStartEndIST(date);
+
     const bookings = await Booking.find({
-      slotStart: { $lt: dayEndUTC },
-      slotEnd: { $gt: dayStartUTC },
+      slotStart: { $lt: rangeEnd },
+      slotEnd: { $gt: rangeStart },
     })
       .populate("student", "name course")
       .lean();
 
-    // Attach bookings to each slot (all overlap checks in UTC)
     for (const slot of slots) {
       const wsUTC = istStringToUTC(slot.slotStart);
       const weUTC = istStringToUTC(slot.slotEnd);
 
       const overlapping = bookings.filter(
         (b) =>
-          new Date(b.slotStart) < weUTC && new Date(b.slotEnd) > wsUTC
+          new Date(b.slotStart) < weUTC &&
+          new Date(b.slotEnd) > wsUTC
       );
 
       slot.bookingsCount = overlapping.length;
@@ -183,68 +151,55 @@ router.get("/slots", auth, async (req, res) => {
 
     res.json(slots);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /* ---------------------------------------------------------
-   POST /bookings — Create booking
-   - Frontend sends IST "YYYY-MM-DDTHH:mm"
-   - Backend converts IST -> UTC before saving
+   POST /bookings (IST input -> UTC save)
 --------------------------------------------------------- */
 router.post("/", auth, async (req, res) => {
   try {
+    const { slotStart, slotEnd, company, round } = req.body;
+
     if (req.user.role !== "student" || req.user.status !== "approved") {
       return res.status(403).json({ msg: "Only approved students may book" });
     }
 
-    const { slotStart, slotEnd, company, round } = req.body;
-    if (!slotStart || !slotEnd || !company || !round) {
+    if (!slotStart || !slotEnd || !company || !round)
       return res.status(400).json({ msg: "Missing fields" });
-    }
 
-    // Convert IST string -> UTC Date
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
 
-    if (isNaN(s) || isNaN(e)) {
+    if (isNaN(s) || isNaN(e))
       return res.status(400).json({ msg: "Invalid date" });
-    }
-    if (e <= s) {
+
+    if (e <= s)
       return res.status(400).json({ msg: "End must be after start" });
-    }
 
-    if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e)) {
-      return res
-        .status(400)
-        .json({ msg: "Times must align to :00 or :30" });
-    }
+    if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e))
+      return res.status(400).json({ msg: "Times must align to :00/:30" });
 
-    if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e.getTime() - 1))) {
-      return res
-        .status(400)
-        .json({ msg: "Out of allowed hours (9 AM – 9 PM IST)" });
-    }
+    if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e - 1)))
+      return res.status(400).json({ msg: "Out of allowed hours (9 AM – 9 PM IST)" });
 
-    // Daily limit: 5 bookings per student (based on IST date)
-    const dateOnlyIST = slotStart.slice(0, 10); // "YYYY-MM-DD"
-    const { start: dayStartUTC, end: dayEndUTC } = dayStartEndIST(dateOnlyIST);
+    const dateIST = slotStart.slice(0, 10);
+    const { start, end } = dayStartEndIST(dateIST);
 
     const todaysCount = await Booking.countDocuments({
       student: req.user._id,
-      slotStart: { $gte: dayStartUTC, $lt: dayEndUTC },
+      slotStart: { $gte: start, $lt: end },
     });
-    if (todaysCount >= 5) {
-      return res.status(400).json({ msg: "Daily limit reached (5)" });
-    }
 
-    // Windows covered by booking (for capacity 6) – in UTC
+    if (todaysCount >= 5)
+      return res.status(400).json({ msg: "Daily limit reached (5)" });
+
     const windows = [];
     let cur = new Date(s);
     while (cur < e) {
-      const next = new Date(cur.getTime() + 30 * 60000);
-      windows.push({ start: new Date(cur), end: new Date(next) });
+      let next = new Date(cur.getTime() + 30 * 60000);
+      windows.push({ start: cur, end: next });
       cur = next;
     }
 
@@ -254,10 +209,9 @@ router.post("/", auth, async (req, res) => {
         slotEnd: { $gt: w.start },
       });
       if (c >= 6) {
-        // Display time in IST for the error message
-        const istDisplay = new Date(w.start.getTime() + IST_OFFSET_MS);
+        const ist = new Date(w.start.getTime() + IST_OFFSET);
         return res.status(409).json({
-          msg: `Window full: ${istDisplay.toLocaleTimeString("en-IN", {
+          msg: `Window full: ${ist.toLocaleTimeString("en-IN", {
             hour: "2-digit",
             minute: "2-digit",
             hour12: true,
@@ -268,68 +222,54 @@ router.post("/", auth, async (req, res) => {
 
     const booking = await Booking.create({
       student: req.user._id,
-      slotStart: s, // UTC
-      slotEnd: e,   // UTC
+      slotStart: s,
+      slotEnd: e,
       company,
       round,
     });
 
-    const populated = await Booking.findById(booking._id).populate(
-      "student",
-      "name course"
-    );
-
-    res.status(201).json(populated);
+    res.status(201).json(booking);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /* ---------------------------------------------------------
-   PUT /bookings/:id — Student edit booking (IST on wire)
+   PUT /bookings/:id (IST input -> UTC save)
 --------------------------------------------------------- */
 router.put("/:id", auth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ msg: "Not found" });
+    if (!booking)
+      return res.status(404).json({ msg: "Not found" });
 
-    if (booking.student.toString() !== req.user._id.toString()) {
+    if (booking.student.toString() !== req.user._id.toString())
       return res.status(403).json({ msg: "Not your booking" });
-    }
 
     const { slotStart, slotEnd, company, round } = req.body;
-    if (!slotStart || !slotEnd || !company || !round) {
+    if (!slotStart || !slotEnd || !company || !round)
       return res.status(400).json({ msg: "Missing fields" });
-    }
 
-    // IST string -> UTC Date
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
 
-    if (isNaN(s) || isNaN(e)) {
+    if (isNaN(s) || isNaN(e))
       return res.status(400).json({ msg: "Invalid date" });
-    }
-    if (e <= s) {
+
+    if (e <= s)
       return res.status(400).json({ msg: "End must be after start" });
-    }
 
-    if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e)) {
+    if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e))
       return res.status(400).json({ msg: "Times must align" });
-    }
 
-    if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e.getTime() - 1))) {
-      return res
-        .status(400)
-        .json({ msg: "Out of allowed hours (9 AM – 9 PM IST)" });
-    }
+    if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e - 1)))
+      return res.status(400).json({ msg: "Out of allowed hours" });
 
-    // Windows to check capacity (ignore this booking itself)
     const windows = [];
     let cur = new Date(s);
     while (cur < e) {
-      const next = new Date(cur.getTime() + 30 * 60000);
-      windows.push({ start: new Date(cur), end: new Date(next) });
+      let next = new Date(cur.getTime() + 30 * 60000);
+      windows.push({ start: cur, end: next });
       cur = next;
     }
 
@@ -340,9 +280,9 @@ router.put("/:id", auth, async (req, res) => {
         _id: { $ne: booking._id },
       });
       if (c >= 6) {
-        const istDisplay = new Date(w.start.getTime() + IST_OFFSET_MS);
+        const ist = new Date(w.start.getTime() + IST_OFFSET);
         return res.status(409).json({
-          msg: `Window full: ${istDisplay.toLocaleTimeString("en-IN", {
+          msg: `Window full: ${ist.toLocaleTimeString("en-IN", {
             hour: "2-digit",
             minute: "2-digit",
             hour12: true,
@@ -351,58 +291,47 @@ router.put("/:id", auth, async (req, res) => {
       }
     }
 
-    booking.slotStart = s; // UTC
-    booking.slotEnd = e;   // UTC
+    booking.slotStart = s;
+    booking.slotEnd = e;
     booking.company = company;
     booking.round = round;
 
     await booking.save();
-
-    const populated = await Booking.findById(booking._id).populate(
-      "student",
-      "name course"
-    );
-
-    res.json(populated);
+    res.json(booking);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /* ---------------------------------------------------------
-   DELETE /bookings/:id/student — Student delete own booking
+   DELETE /bookings/:id/student
 --------------------------------------------------------- */
 router.delete("/:id/student", auth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ msg: "Not found" });
 
-    if (booking.student.toString() !== req.user._id.toString()) {
+    if (booking.student.toString() !== req.user._id.toString())
       return res.status(403).json({ msg: "Not your booking" });
-    }
 
     await Booking.findByIdAndDelete(req.params.id);
     res.json({ msg: "Booking removed" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /* ---------------------------------------------------------
-   DELETE /bookings/:id — Admin delete any booking
+   DELETE /bookings/:id — Admin delete
 --------------------------------------------------------- */
 router.delete("/:id", auth, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+    if (req.user.role !== "admin")
       return res.status(403).json({ msg: "Admin only" });
-    }
 
     await Booking.findByIdAndDelete(req.params.id);
     res.json({ msg: "Deleted" });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
