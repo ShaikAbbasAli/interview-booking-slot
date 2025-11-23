@@ -7,8 +7,8 @@ function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-// Convert Date → IST string with timezone
-function toISTString(date) {
+// Convert Date → "YYYY-MM-DDTHH:mm" (IST WITHOUT timezone)
+function toPureISTString(date) {
   return (
     date.getFullYear() +
     "-" +
@@ -18,8 +18,7 @@ function toISTString(date) {
     "T" +
     pad(date.getHours()) +
     ":" +
-    pad(date.getMinutes()) +
-    "+05:30"
+    pad(date.getMinutes())
   );
 }
 
@@ -39,7 +38,7 @@ export default function EditBooking() {
   const minutes = ["00", "30"];
 
   /* -------------------------------------------------------
-     LOAD BOOKING (backend already returns IST)
+     LOAD BOOKING (Backend sends plain IST string already)
   --------------------------------------------------------- */
   useEffect(() => {
     async function load() {
@@ -59,7 +58,7 @@ export default function EditBooking() {
         setDate(format(sIST, "yyyy-MM-dd"));
         setHour(pad(sIST.getHours()));
         setMinute(pad(sIST.getMinutes()));
-        setDuration((eIST - sIST) / 60000); // difference in minutes
+        setDuration((eIST - sIST) / 60000);
 
         setCompany(found.company);
         setRound(found.round);
@@ -75,14 +74,14 @@ export default function EditBooking() {
   }, [id, navigate]);
 
   /* -------------------------------------------------------
-     SUBMIT (slotEnd = slotStart + duration)
+     SUBMIT — slotEnd = slotStart + duration (IST only)
   --------------------------------------------------------- */
   async function submit(e) {
     e.preventDefault();
 
     const [Y, M, D] = date.split("-").map(Number);
 
-    // Build slotStart in IST normally (local time)
+    // Build slotStart in IST
     const startIST = new Date(Y, M - 1, D, Number(hour), Number(minute));
 
     // slotEnd = slotStart + duration minutes
@@ -97,8 +96,8 @@ export default function EditBooking() {
       return alert("End minutes must be :00 or :30");
 
     const payload = {
-      slotStart: toISTString(startIST), // IST with timezone
-      slotEnd: toISTString(endIST),     // IST with timezone
+      slotStart: toPureISTString(startIST), // "2025-11-23T11:00"
+      slotEnd: toPureISTString(endIST),     // "2025-11-23T12:00"
       company,
       round,
     };
