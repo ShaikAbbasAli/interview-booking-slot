@@ -3,14 +3,6 @@ import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-// Parse local datetime without applying timezone offset
-function parseLocal(dtString) {
-  const [datePart, timePart] = dtString.split("T");
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm] = timePart.split(":").map(Number);
-  return new Date(y, m - 1, d, hh, mm, 0);
-}
-
 export default function MyBookings() {
   const navigate = useNavigate();
 
@@ -34,16 +26,16 @@ export default function MyBookings() {
     loadBookings();
   }, []);
 
-  // DELETE BOOKING
+  // DELETE BOOKING (student)
   async function deleteBooking(id) {
-    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
+    if (!window.confirm("Are you sure you want to delete this booking?")) return;
 
     try {
       await API.delete(`/bookings/${id}/student`);
-      alert("Booking cancelled successfully.");
+      alert("Booking removed successfully.");
       loadBookings();
     } catch (err) {
-      alert("Cancel failed: " + (err.response?.data?.msg || err.message));
+      alert("Delete failed: " + (err.response?.data?.msg || err.message));
     }
   }
 
@@ -58,8 +50,8 @@ export default function MyBookings() {
       ) : (
         <div className="space-y-3">
           {bookings.map((b) => {
-            const start = parseLocal(b.slotStart);
-            const end = parseLocal(b.slotEnd);
+            const start = new Date(b.slotStart);
+            const end = new Date(b.slotEnd);
 
             return (
               <div
@@ -83,8 +75,10 @@ export default function MyBookings() {
                   <span className="font-semibold">Round:</span> {b.round}
                 </div>
 
+                {/* Removed approval status completely */}
+
                 <div className="text-xs text-slate-500 mt-2">
-                  * You can edit or cancel this booking.
+                  * You can edit or delete this booking.
                 </div>
 
                 <div className="flex gap-3 mt-3">
@@ -99,7 +93,7 @@ export default function MyBookings() {
                     onClick={() => deleteBooking(b._id)}
                     className="px-3 py-1 bg-red-600 rounded hover:bg-red-500"
                   >
-                    Cancel
+                    Delete
                   </button>
                 </div>
               </div>
