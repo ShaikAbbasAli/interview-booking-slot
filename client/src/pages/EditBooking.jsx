@@ -8,21 +8,31 @@ function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-function buildLocal(y, m, d, hh, mm) {
-  return new Date(y, m - 1, d, hh, mm, 0);
+// Parse a LOCAL datetime string WITHOUT timezone shift
+function parseLocal(dtString) {
+  const [datePart, timePart] = dtString.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  return new Date(y, m - 1, d, hh, mm, 0, 0);
 }
 
-function toLocalString(dt) {
+// Build LOCAL datetime safely
+function buildLocal(y, m, d, hh, mm) {
+  return new Date(y, m - 1, d, hh, mm, 0, 0);
+}
+
+// Convert LOCAL date to "YYYY-MM-DDTHH:mm"
+function toLocalString(date) {
   return (
-    dt.getFullYear() +
+    date.getFullYear() +
     "-" +
-    pad(dt.getMonth() + 1) +
+    pad(date.getMonth() + 1) +
     "-" +
-    pad(dt.getDate()) +
+    pad(date.getDate()) +
     "T" +
-    pad(dt.getHours()) +
+    pad(date.getHours()) +
     ":" +
-    pad(dt.getMinutes())
+    pad(date.getMinutes())
   );
 }
 
@@ -31,8 +41,6 @@ export default function EditBooking() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [booking, setBooking] = useState(null);
-
   const [date, setDate] = useState("");
   const [hour, setHour] = useState("09");
   const [minute, setMinute] = useState("00");
@@ -40,14 +48,13 @@ export default function EditBooking() {
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
 
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+  const hours = Array.from({ length: 12 }, (_, i) => i + 9); // 09–20
   const minutes = ["00", "30"];
 
+  // ------------------ LOAD EXISTING BOOKING ------------------
   useEffect(() => {
     async function load() {
       try {
-        setLoading(true);
-
         const res = await API.get("/bookings/me");
         const found = res.data.find((b) => b._id === id);
 
@@ -57,10 +64,9 @@ export default function EditBooking() {
           return;
         }
 
-        setBooking(found);
-
-        const s = new Date(found.slotStart);
-        const e = new Date(found.slotEnd);
+        // ⛔ DO NOT USE new Date(found.slotStart)
+        const s = parseLocal(found.slotStart);
+        const e = parseLocal(found.slotEnd);
 
         setDate(format(s, "yyyy-MM-dd"));
         setHour(pad(s.getHours()));
@@ -69,6 +75,9 @@ export default function EditBooking() {
 
         setCompany(found.company);
         setRound(found.round);
+      } catch {
+        alert("Failed to load booking");
+        navigate("/mybookings");
       } finally {
         setLoading(false);
       }
@@ -76,6 +85,7 @@ export default function EditBooking() {
     load();
   }, [id, navigate]);
 
+  // ------------------ SUBMIT UPDATE ------------------
   async function submit(e) {
     e.preventDefault();
 
@@ -83,27 +93,31 @@ export default function EditBooking() {
     const start = buildLocal(Y, M, D, Number(hour), Number(minute));
     const end = new Date(start.getTime() + duration * 60000);
 
-    const slotStart = toLocalString(start);
-    const slotEnd = toLocalString(end);
+    // Validate
+    if (end <= start) return alert("End must be after start");
+    if (end.getHours() >= 21) return alert("End must be before 9 PM");
+    if (![0, 30].includes(start.getMinutes())) return alert("Start must align to :00/:30");
+    if (![0, 30].includes(end.getMinutes())) return alert("End must align to :00/:30");
+
+    const payload = {
+      slotStart: toLocalString(start),
+      slotEnd: toLocalString(end),
+      company,
+      round,
+    };
 
     try {
-      await API.put(`/bookings/${id}`, {
-        slotStart,
-        slotEnd,
-        company,
-        round,
-      });
-
-      alert("Booking updated");
+      await API.put(`/bookings/${id}`, payload);
+      alert("Booking updated successfully");
       navigate("/mybookings");
     } catch (err) {
       alert(err.response?.data?.msg || "Update failed");
     }
   }
 
+  // ------------------ DELETE ------------------
   async function remove() {
-    if (!window.confirm("Delete?")) return;
-
+    if (!window.confirm("Delete this booking?")) return;
     await API.delete(`/bookings/${id}/student`);
     navigate("/mybookings");
   }
