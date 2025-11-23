@@ -1,4 +1,3 @@
-// client/src/pages/BookInterview.jsx
 import React, { useState } from "react";
 import API from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -53,8 +52,28 @@ export default function BookInterview() {
 
     const [Y, M, D] = date.split("-").map(Number);
 
+    // Build local start & end
     const start = buildLocal(Y, M, D, Number(hour), Number(minute));
     const end = new Date(start.getTime() + duration * 60000);
+
+    const now = new Date();
+
+    // ❌ Block booking for past DATE
+    const selectedDateObj = new Date(Y, M - 1, D);
+    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (selectedDateObj < todayDateOnly) {
+      alert("Cannot book slots for past dates.");
+      setLoading(false);
+      return;
+    }
+
+    // ❌ Block booking for past TIME (only if selected date is today)
+    if (selectedDateObj.getTime() === todayDateOnly.getTime() && start < now) {
+      alert("Cannot book a slot in the past.");
+      setLoading(false);
+      return;
+    }
 
     const slotStart = `${date}T${pad(start.getHours())}:${pad(start.getMinutes())}`;
     const slotEnd = `${date}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
