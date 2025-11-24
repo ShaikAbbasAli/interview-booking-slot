@@ -27,12 +27,10 @@ export default function MyBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load bookings
   async function loadBookings() {
     try {
       const res = await API.get("/bookings/me");
 
-      // Sort latest first
       const sorted = res.data.sort(
         (a, b) => new Date(b.slotStart) - new Date(a.slotStart)
       );
@@ -72,7 +70,6 @@ export default function MyBookings() {
 
             const now = new Date();
 
-            // Compare only DATES (not time)
             const bookingDate = new Date(
               start.getFullYear(),
               start.getMonth(),
@@ -98,11 +95,15 @@ export default function MyBookings() {
                 </div>
 
                 <div className="mt-1">
-                  <b>Company:</b> {b.company}
+                  <b>Company Type:</b> {b.company}
                 </div>
 
                 <div className="mt-1">
                   <b>Round:</b> {b.round}
+                </div>
+
+                <div className="mt-1">
+                  <b>Technology:</b> {b.technology}
                 </div>
 
                 <div className="flex gap-3 mt-3">

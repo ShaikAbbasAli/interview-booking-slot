@@ -9,6 +9,18 @@ function pad(n) {
 // Build LOCAL date without timezone shift
 const buildLocal = (y, m, d, hh, mm) => new Date(y, m - 1, d, hh, mm, 0);
 
+const ROUND_OPTIONS = ["L1", "L2", "L3", "Manager", "Client", "HR"];
+const COMPANY_OPTIONS = ["MNC", "Mid Range", "Startup"];
+const TECH_OPTIONS = [
+  "Python",
+  "DevOps",
+  "CyberArk",
+  "Cyber Security",
+  ".Net",
+  "Java",
+  "MERN Stack",
+];
+
 export default function BookInterview() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,13 +49,14 @@ export default function BookInterview() {
   const [hour, setHour] = useState(preHour || "09");
   const [minute, setMinute] = useState(preMinute || "00");
   const [duration, setDuration] = useState(30);
-  const [company, setCompany] = useState("");
-  const [round, setRound] = useState("");
+  const [company, setCompany] = useState("");       // dropdown
+  const [round, setRound] = useState("");           // dropdown
+  const [technology, setTechnology] = useState(""); // new dropdown
   const [loading, setLoading] = useState(false);
 
   // 9 → 23 (9AM–11PM start times)
   const hours = Array.from({ length: 15 }, (_, i) => i + 9);
-  const minutes = ["00", "30"];
+  const minutesArr = ["00", "30"];
 
   const timeLocked = !!preStart;
 
@@ -51,16 +64,19 @@ export default function BookInterview() {
     e.preventDefault();
     setLoading(true);
 
-    // 🚫 VALIDATE COMPANY LENGTH
-    if (company.length > 25) {
-      alert("Company name cannot exceed 25 characters.");
+    // 🚫 ensure dropdowns selected
+    if (!company) {
+      alert("Please select Company type (MNC / Mid Range / Startup).");
       setLoading(false);
       return;
     }
-
-    // 🚫 VALIDATE ROUND LENGTH
-    if (round.length > 25) {
-      alert("Round description cannot exceed 25 characters.");
+    if (!round) {
+      alert("Please select Round.");
+      setLoading(false);
+      return;
+    }
+    if (!technology) {
+      alert("Please select Technology.");
       setLoading(false);
       return;
     }
@@ -132,8 +148,9 @@ export default function BookInterview() {
       await API.post("/bookings", {
         slotStart,
         slotEnd,
-        company,
-        round,
+        company,     // dropdown string
+        round,       // dropdown string
+        technology,  // new field
       });
 
       alert("Slot booked successfully!");
@@ -186,7 +203,7 @@ export default function BookInterview() {
             onChange={(e) => setMinute(e.target.value)}
             className="w-full p-2 rounded bg-slate-700"
           >
-            {minutes.map((m) => (
+            {minutesArr.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
@@ -205,21 +222,50 @@ export default function BookInterview() {
         <option value={60}>1 Hour</option>
       </select>
 
-      <label>Company (max 25 chars)</label>
-      <input
+      {/* Company dropdown */}
+      <label>Company Type</label>
+      <select
         value={company}
         onChange={(e) => setCompany(e.target.value)}
-        maxLength={25}
         className="w-full p-2 mb-3 rounded bg-slate-700"
-      />
+      >
+        <option value="">-- Select Company Type --</option>
+        {COMPANY_OPTIONS.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
 
-      <label>Round (max 25 chars)</label>
-      <input
+      {/* Round dropdown */}
+      <label>Round</label>
+      <select
         value={round}
         onChange={(e) => setRound(e.target.value)}
-        maxLength={25}
+        className="w-full p-2 mb-3 rounded bg-slate-700"
+      >
+        <option value="">-- Select Round --</option>
+        {ROUND_OPTIONS.map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+
+      {/* Technology dropdown */}
+      <label>Technology</label>
+      <select
+        value={technology}
+        onChange={(e) => setTechnology(e.target.value)}
         className="w-full p-2 mb-4 rounded bg-slate-700"
-      />
+      >
+        <option value="">-- Select Technology --</option>
+        {TECH_OPTIONS.map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </select>
 
       <button
         className="px-4 py-2 bg-cyan-600 rounded w-full"

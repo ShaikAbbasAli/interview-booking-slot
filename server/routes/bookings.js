@@ -151,6 +151,7 @@ router.get("/slots", auth, async (req, res) => {
           student: b.student,
           company: b.company,
           round: b.round,
+          technology: b.technology,
           duration: durationMin,
         };
       });
@@ -167,13 +168,13 @@ router.get("/slots", auth, async (req, res) => {
 --------------------------------------------------------- */
 router.post("/", auth, async (req, res) => {
   try {
-    const { slotStart, slotEnd, company, round } = req.body;
+    const { slotStart, slotEnd, company, round, technology } = req.body;
 
     if (req.user.role !== "student" || req.user.status !== "approved") {
       return res.status(403).json({ msg: "Only approved students may book" });
     }
 
-    if (!slotStart || !slotEnd || !company || !round)
+    if (!slotStart || !slotEnd || !company || !round || !technology)
       return res.status(400).json({ msg: "Missing fields" });
 
     const s = istStringToUTC(slotStart);
@@ -244,6 +245,7 @@ router.post("/", auth, async (req, res) => {
       slotEnd: e,
       company,
       round,
+      technology,
     });
 
     res.status(201).json(booking);
@@ -264,8 +266,8 @@ router.put("/:id", auth, async (req, res) => {
     if (booking.student.toString() !== req.user._id.toString())
       return res.status(403).json({ msg: "Not your booking" });
 
-    const { slotStart, slotEnd, company, round } = req.body;
-    if (!slotStart || !slotEnd || !company || !round)
+    const { slotStart, slotEnd, company, round, technology } = req.body;
+    if (!slotStart || !slotEnd || !company || !round || !technology)
       return res.status(400).json({ msg: "Missing fields" });
 
     const s = istStringToUTC(slotStart);
@@ -321,6 +323,7 @@ router.put("/:id", auth, async (req, res) => {
     booking.slotEnd = e;
     booking.company = company;
     booking.round = round;
+    booking.technology = technology;
 
     await booking.save();
     res.json(booking);

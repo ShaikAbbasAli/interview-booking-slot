@@ -24,3 +24,13 @@
 .shake {
   animation: shake 0.4s ease-in-out;
 }
+
+/* Hide scrollbars but keep scroll functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;   /* IE & Edge */
+  scrollbar-width: none;      /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;              /* Chrome, Safari */
+}

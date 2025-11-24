@@ -132,11 +132,14 @@ export default function FullDayView() {
                         </div>
 
                         <div className="text-xs text-slate-400 mt-1">
-                          Company:{" "}
+                          Company Type:{" "}
                           <span className="text-white">{b.company}</span>
                           <br />
                           Round:{" "}
                           <span className="text-white">{b.round}</span>
+                          <br />
+                          Technology:{" "}
+                          <span className="text-white">{b.technology}</span>
                           <br />
                           Duration:{" "}
                           <span className="text-white">
