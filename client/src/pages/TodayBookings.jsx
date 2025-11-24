@@ -1,35 +1,32 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 
-// SAFE PARSER
+/* Parse IST without timezone shift */
 function parseLocal(dtString) {
-  if (!dtString || typeof dtString !== "string" || !dtString.includes("T")) {
-    return new Date();
-  }
-
-  const [datePart, timePart] = dtString.split("T");
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm] = timePart.split(":").map(Number);
-  return new Date(y, m - 1, d, hh, mm);
+  if (!dtString) return new Date();
+  return parse(dtString, "yyyy-MM-dd'T'HH:mm", new Date());
 }
 
 export default function TodayBookings() {
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+  const [selectedDate, setSelectedDate] = useState(today);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Pagination states
+  // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  async function loadToday() {
+  async function loadData(date) {
     try {
       setLoading(true);
 
-      const res = await API.get("/bookings/today");
+      const res = await API.get(`/bookings/by-date?date=${date}`);
 
       const sorted = res.data.sort(
-        (a, b) => new Date(a.slotStart) - new Date(b.slotStart)
+        (a, b) => parseLocal(a.slotStart) - parseLocal(b.slotStart)
       );
 
       setRows(sorted);
@@ -42,74 +39,56 @@ export default function TodayBookings() {
   }
 
   useEffect(() => {
-    loadToday();
-  }, []);
+    loadData(selectedDate);
+  }, [selectedDate]);
 
-  // Pagination logic
+  // Pagination
   const totalPages = Math.ceil(rows.length / pageSize);
   const startIndex = (page - 1) * pageSize;
   const visibleRows = rows.slice(startIndex, startIndex + pageSize);
 
-  const nextPage = () => page < totalPages && setPage(page + 1);
-  const prevPage = () => page > 1 && setPage(page - 1);
-
   return (
     <div className="p-6">
-      <h2 className="text-3xl mb-6 font-bold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
-        Today Slot Book Details
-      </h2>
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
+          Slot Book Details
+        </h2>
+
+        {/* Calendar Selector */}
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => {
+            setSelectedDate(e.target.value);
+            setPage(1);
+          }}
+          className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
+        />
+      </div>
 
       {/* LOADING */}
       {loading ? (
-        <div className="p-6 bg-slate-800/60 rounded-xl border border-slate-700 text-center shadow-lg animate-pulse">
+        <div className="p-6 bg-slate-800 rounded-xl text-center animate-pulse">
           Loading…
         </div>
       ) : rows.length === 0 ? (
-        <div className="p-6 bg-slate-800/60 rounded-xl border border-slate-700 text-center shadow-lg">
-          No slots booked for today.
+        <div className="p-6 bg-slate-800 rounded-xl text-center">
+          No slots booked for this date.
         </div>
       ) : (
         <>
-          {/* Pagination + Page Size */}
-          <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3">
-            <div className="text-slate-300">
-              Showing{" "}
-              <span className="text-cyan-400 font-bold">{startIndex + 1}</span>–{" "}
-              <span className="text-cyan-400 font-bold">
-                {Math.min(startIndex + pageSize, rows.length)}
-              </span>{" "}
-              of{" "}
-              <span className="text-cyan-400 font-bold">{rows.length}</span>
-            </div>
-
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="bg-slate-800 border border-slate-600 text-white px-3 py-2 rounded-lg"
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n} per page
-                </option>
-              ))}
-            </select>
+          {/* Pagination Info */}
+          <div className="flex justify-between mb-3 text-slate-300">
+            Showing {startIndex + 1}–{Math.min(startIndex + pageSize, rows.length)} of{" "}
+            {rows.length}
           </div>
 
-          {/* TABLE WRAPPER */}
-          <div
-            className="
-              bg-slate-900/60 backdrop-blur-lg border border-slate-700 
-              rounded-xl shadow-xl overflow-hidden
-            "
-          >
-            {/* Desktop = full table | Mobile = scroll */}
+          {/* Table Wrapper */}
+          <div className="bg-slate-900/60 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
             <div className="overflow-x-auto md:overflow-x-visible">
-              <table className="min-w-full text-sm text-left table-auto md:table-fixed">
-                <thead className="bg-slate-900/80 sticky top-0">
-                  <tr className="text-cyan-300 border-b border-slate-700">
+              <table className="min-w-full text-sm text-left">
+                <thead className="bg-slate-900 text-cyan-300 border-b border-slate-700">
+                  <tr>
                     <TableHead>S.No</TableHead>
                     <TableHead>Student</TableHead>
                     <TableHead>Slot Time</TableHead>
@@ -131,17 +110,13 @@ export default function TodayBookings() {
                       <tr
                         key={r._id}
                         className={`${
-                          idx % 2 === 0
-                            ? "bg-slate-800/50"
-                            : "bg-slate-700/40"
-                        } hover:bg-slate-600/40 transition duration-200`}
+                          idx % 2 === 0 ? "bg-slate-800" : "bg-slate-700"
+                        } hover:bg-slate-600 transition`}
                       >
                         <TableCell>{startIndex + idx + 1}</TableCell>
-                        <TableCell className="whitespace-nowrap md:whitespace-normal">
-                          {r.studentName}
-                        </TableCell>
+                        <TableCell>{r.studentName}</TableCell>
 
-                        <TableCell className="whitespace-nowrap md:whitespace-normal">
+                        <TableCell>
                           <span className="text-cyan-300 font-semibold">
                             {format(s, "hh:mm a")}
                           </span>{" "}
@@ -153,14 +128,14 @@ export default function TodayBookings() {
                             ? "1 hour"
                             : r.duration === 30
                             ? "30 minutes"
-                            : r.duration + " minutes"}
+                            : `${r.duration} min`}
                         </TableCell>
 
                         <TableCell>{r.round}</TableCell>
                         <TableCell>{r.company}</TableCell>
                         <TableCell>{r.technology}</TableCell>
 
-                        <TableCell className="whitespace-nowrap md:whitespace-normal">
+                        <TableCell>
                           {format(created, "dd MMM yyyy, hh:mm a")}
                         </TableCell>
                       </tr>
@@ -171,12 +146,9 @@ export default function TodayBookings() {
             </div>
           </div>
 
-          {/* PAGINATION BUTTONS */}
           <Pagination
             page={page}
             totalPages={totalPages}
-            prevPage={prevPage}
-            nextPage={nextPage}
             setPage={setPage}
           />
         </>
@@ -185,69 +157,41 @@ export default function TodayBookings() {
   );
 }
 
-/* -------------------------- */
-/* REUSABLE TABLE COMPONENTS  */
-/* -------------------------- */
-
 function TableHead({ children }) {
-  return (
-    <th className="px-4 py-3 text-sm font-semibold tracking-wide border-r border-slate-700 last:border-r-0">
-      {children}
-    </th>
-  );
+  return <th className="px-4 py-3">{children}</th>;
 }
 
-function TableCell({ children, className = "" }) {
-  return (
-    <td
-      className={`
-        px-4 py-3 border-b border-slate-700/40 text-slate-200 
-        ${className}
-      `}
-    >
-      {children}
-    </td>
-  );
+function TableCell({ children }) {
+  return <td className="px-4 py-3 border-b border-slate-700">{children}</td>;
 }
 
-/* -------------------------- */
-/*     BEAUTIFUL PAGINATION   */
-/* -------------------------- */
-
-function Pagination({ page, totalPages, prevPage, nextPage, setPage }) {
-  const pages = [];
-
-  for (let i = 1; i <= totalPages; i++) pages.push(i);
-
+function Pagination({ page, totalPages, setPage }) {
   return (
-    <div className="flex justify-center items-center gap-2 mt-4 flex-wrap">
+    <div className="flex justify-center gap-2 mt-4">
       <button
-        onClick={prevPage}
-        disabled={page === 1}
-        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600 disabled:opacity-40 hover:bg-slate-700 transition"
+        onClick={() => page > 1 && setPage(page - 1)}
+        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600"
       >
         Prev
       </button>
 
-      {/* Page numbers */}
-      {pages.map((p) => (
+      {[...Array(totalPages)].map((_, i) => (
         <button
-          key={p}
-          onClick={() => setPage(p)}
-          className={`px-4 py-2 rounded-lg border transition ${
-            page === p
-              ? "bg-cyan-600 text-white border-cyan-400"
-              : "bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700"
+          key={i}
+          onClick={() => setPage(i + 1)}
+          className={`px-4 py-2 rounded-lg ${
+            page === i + 1
+              ? "bg-cyan-600 text-white"
+              : "bg-slate-800 text-slate-300"
           }`}
         >
-          {p}
+          {i + 1}
         </button>
       ))}
 
       <button
-        onClick={nextPage}
-        disabled={page === totalPages}
-        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600 disabled:opacity-40 hover:bg-slate-700 transition"
+        onClick={() => page < totalPages && setPage(page + 1)}
+        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600"
       >
         Next
       </button>

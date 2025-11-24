@@ -62,7 +62,6 @@ function isAlignedTo30IST(dateUTC) {
 function inWorkingHoursIST(dateUTC) {
   const t = new Date(dateUTC.getTime() + IST_OFFSET);
   const mins = t.getUTCHours() * 60 + t.getUTCMinutes();
-  // 09:00 (540) <= time < 24:00 (1440)
   return mins >= 540 && mins < 1440;
 }
 
@@ -88,12 +87,10 @@ router.get("/me", auth, async (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   GET /bookings/today — Today’s bookings (global)
-   Returns: sorted by slotStart, in IST
+   GET /bookings/today — Today’s bookings (IST)
 --------------------------------------------------------- */
 router.get("/today", auth, async (req, res) => {
   try {
-    // Get "today" in IST
     const nowIST = new Date(Date.now() + IST_OFFSET);
     const y = nowIST.getUTCFullYear();
     const m = pad(nowIST.getUTCMonth() + 1);
@@ -134,8 +131,63 @@ router.get("/today", auth, async (req, res) => {
   }
 });
 
+
 /* ---------------------------------------------------------
-   GET /bookings/slots?date=YYYY-MM-DD (IST) — 9:00 → 24:00
+   ⭐ NEW: GET /bookings/by-date?date=YYYY-MM-DD
+   Returns selected date bookings (IST)
+--------------------------------------------------------- */
+router.get("/by-date", auth, async (req, res) => {
+  try {
+    const todayIST = new Date(Date.now() + IST_OFFSET);
+    const defaultDate = todayIST.toISOString().split("T")[0];
+
+    const dateStr = req.query.date || defaultDate;
+
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const midnightUTC = new Date(Date.UTC(y, m - 1, d, 0, 0));
+    const dayStartUTC = new Date(midnightUTC.getTime() - IST_OFFSET);
+    const dayEndUTC = new Date(dayStartUTC.getTime() + 86400000);
+
+    const bookings = await Booking.find({
+      slotStart: { $lt: dayEndUTC },
+      slotEnd: { $gt: dayStartUTC },
+    })
+      .populate("student", "name")
+      .lean();
+
+    const list = bookings.map((b) => {
+      const durationMin =
+        (new Date(b.slotEnd) - new Date(b.slotStart)) / 60000;
+
+      return {
+        _id: b._id,
+        studentName: b.student?.name || "Unknown",
+        slotStart: toISTString(new Date(b.slotStart)),
+        slotEnd: toISTString(new Date(b.slotEnd)),
+        createdAt: toISTString(new Date(b.createdAt)),
+        duration: durationMin,
+        company: b.company,
+        round: b.round,
+        technology: b.technology,
+      };
+    });
+
+    list.sort(
+      (a, b) =>
+        new Date(a.slotStart.replace(" ", "T")) -
+        new Date(b.slotStart.replace(" ", "T"))
+    );
+
+    res.json(list);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+
+/* ---------------------------------------------------------
+   GET /bookings/slots — Full day slot windows 9:00–24:00
 --------------------------------------------------------- */
 router.get("/slots", auth, async (req, res) => {
   try {
@@ -147,9 +199,8 @@ router.get("/slots", auth, async (req, res) => {
     }
 
     const { start: dayStartUTC } = dayStartEndIST(date);
-    const slots = [];
 
-    // 09:00 IST to 24:00 IST
+    const slots = [];
     const startUTC = new Date(dayStartUTC.getTime() + 9 * 3600000);
     const endUTC = new Date(dayStartUTC.getTime() + 24 * 3600000);
 
@@ -210,16 +261,13 @@ router.get("/slots", auth, async (req, res) => {
   }
 });
 
+
 /* ---------------------------------------------------------
-   POST /bookings (IST input -> UTC save)
+   POST /bookings — Create booking
 --------------------------------------------------------- */
 router.post("/", auth, async (req, res) => {
   try {
     const { slotStart, slotEnd, company, round, technology } = req.body;
-
-    if (req.user.role !== "student" || req.user.status !== "approved") {
-      return res.status(403).json({ msg: "Only approved students may book" });
-    }
 
     if (!slotStart || !slotEnd || !company || !round || !technology)
       return res.status(400).json({ msg: "Missing fields" });
@@ -227,10 +275,6 @@ router.post("/", auth, async (req, res) => {
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
 
-    if (isNaN(s) || isNaN(e))
-      return res.status(400).json({ msg: "Invalid date" });
-
-    // Block past bookings (in IST)
     const nowIST = new Date(Date.now() + IST_OFFSET);
     const sIST = new Date(s.getTime() + IST_OFFSET);
     if (sIST < nowIST) {
@@ -241,26 +285,22 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ msg: "End must be after start" });
 
     if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e))
-      return res.status(400).json({ msg: "Times must align to :00/:30" });
+      return res.status(400).json({ msg: "Times must align (:00/:30)" });
 
     if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e - 1)))
-      return res
-        .status(400)
-        .json({ msg: "Out of allowed hours (9 AM – 12 AM IST)" });
+      return res.status(400).json({ msg: "Outside 9 AM – 12 AM limit" });
 
     const dateIST = slotStart.slice(0, 10);
     const { start, end } = dayStartEndIST(dateIST);
 
-    // Daily limit check
     const todaysCount = await Booking.countDocuments({
       student: req.user._id,
       slotStart: { $gte: start, $lt: end },
     });
 
     if (todaysCount >= 5)
-      return res.status(400).json({ msg: "Daily limit reached (5)" });
+      return res.status(400).json({ msg: "Daily limit 5 reached" });
 
-    // Window capacity check (30-minute windows, max 6)
     const windows = [];
     let cur = new Date(s);
     while (cur < e) {
@@ -301,70 +341,28 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
+
 /* ---------------------------------------------------------
-   PUT /bookings/:id (IST input -> UTC save)
+   PUT /bookings/:id — Edit booking
 --------------------------------------------------------- */
 router.put("/:id", auth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
-    if (!booking)
-      return res.status(404).json({ msg: "Not found" });
+    if (!booking) return res.status(404).json({ msg: "Not found" });
 
     if (booking.student.toString() !== req.user._id.toString())
       return res.status(403).json({ msg: "Not your booking" });
 
     const { slotStart, slotEnd, company, round, technology } = req.body;
-    if (!slotStart || !slotEnd || !company || !round || !technology)
-      return res.status(400).json({ msg: "Missing fields" });
 
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
 
-    if (isNaN(s) || isNaN(e))
-      return res.status(400).json({ msg: "Invalid date" });
-
-    // Block editing past slots (in IST)
     const nowIST = new Date(Date.now() + IST_OFFSET);
     const sIST = new Date(s.getTime() + IST_OFFSET);
-    if (sIST < nowIST) {
+
+    if (sIST < nowIST)
       return res.status(400).json({ msg: "Cannot edit past slots." });
-    }
-
-    if (e <= s)
-      return res.status(400).json({ msg: "End must be after start" });
-
-    if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e))
-      return res.status(400).json({ msg: "Times must align" });
-
-    if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e - 1)))
-      return res.status(400).json({ msg: "Out of allowed hours" });
-
-    // Window capacity check, excluding current booking
-    const windows = [];
-    let cur = new Date(s);
-    while (cur < e) {
-      let next = new Date(cur.getTime() + 30 * 60000);
-      windows.push({ start: cur, end: next });
-      cur = next;
-    }
-
-    for (const w of windows) {
-      const c = await Booking.countDocuments({
-        slotStart: { $lt: w.end },
-        slotEnd: { $gt: w.start },
-        _id: { $ne: booking._id },
-      });
-      if (c >= 6) {
-        const ist = new Date(w.start.getTime() + IST_OFFSET);
-        return res.status(409).json({
-          msg: `Window full: ${ist.toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })}`,
-        });
-      }
-    }
 
     booking.slotStart = s;
     booking.slotEnd = e;
@@ -378,6 +376,7 @@ router.put("/:id", auth, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 
 /* ---------------------------------------------------------
    DELETE /bookings/:id/student
@@ -397,6 +396,7 @@ router.delete("/:id/student", auth, async (req, res) => {
   }
 });
 
+
 /* ---------------------------------------------------------
    DELETE /bookings/:id — Admin delete
 --------------------------------------------------------- */
@@ -411,5 +411,6 @@ router.delete("/:id", auth, async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 
 export default router;
