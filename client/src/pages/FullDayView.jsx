@@ -81,16 +81,21 @@ export default function FullDayView() {
 
             const isExpanded = expanded === s.slotStart;
 
-            // 🚫 PAST SLOT CHECK
-            const now = new Date();
-            const isPastSlot = start < now;
+            // Slot full condition
+            const isSlotFull = s.bookingsCount >= 6;
+
+            // Duration display
+            const durationMin = (end - start) / 60000;
+            const durationText = durationMin === 60 ? "1 Hour" : "30 Minutes";
 
             return (
               <div
                 key={s.slotStart}
-                className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${colorForCount(
-                  s.bookingsCount
-                )} ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
+                className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${
+                  isSlotFull ? "bg-red-700" : colorForCount(s.bookingsCount)
+                } ${
+                  isExpanded ? "border-4 border-cyan-400 scale-105" : ""
+                }`}
               >
                 {/* HEADER */}
                 <div
@@ -107,6 +112,10 @@ export default function FullDayView() {
 
                   <div className="text-sm mt-1 text-white">
                     Booked: {s.bookingsCount} / 6
+                  </div>
+
+                  <div className="text-sm mt-1 text-white">
+                    Duration: {durationText}
                   </div>
 
                   <div className="text-xs text-slate-200 mt-1">
@@ -129,19 +138,19 @@ export default function FullDayView() {
                         <div className="font-semibold text-white">
                           {b.student?.name}
                         </div>
+
                         <div className="text-xs text-slate-400 mt-1">
-                          Company:{" "}
-                          <span className="text-white">{b.company}</span>
-                          <br />
-                          Round: <span className="text-white">{b.round}</span>
+                          Company: <span className="text-white">{b.company}</span> <br />
+                          Round: <span className="text-white">{b.round}</span> <br />
+                          Duration: <span className="text-white">{durationText}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* STUDENT BUTTON OR PAST BADGE */}
-                {!isAdmin && !isPastSlot && (
+                {/* BOOK SLOT BUTTON (Only if NOT Admin & slot is NOT full) */}
+                {!isAdmin && !isSlotFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
                     onClick={() => book(s.slotStart)}
@@ -150,17 +159,17 @@ export default function FullDayView() {
                   </button>
                 )}
 
-                {/* 🚫 PAST SLOT LABEL */}
-                {!isAdmin && isPastSlot && (
-                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
-                    Past Slot
+                {/* SLOT FULL BADGE */}
+                {!isAdmin && isSlotFull && (
+                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-300">
+                    Slot Full
                   </div>
                 )}
 
                 {/* ADMIN LABEL */}
                 {isAdmin && (
                   <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-sm text-slate-200">
-                    {s.bookingsCount >= 6 ? "Slot Full" : "Seats Available"}
+                    {isSlotFull ? "Slot Full" : "Seats Available"}
                   </div>
                 )}
               </div>
