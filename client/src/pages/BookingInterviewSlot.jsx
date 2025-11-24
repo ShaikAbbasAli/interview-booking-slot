@@ -9,7 +9,16 @@ function pad(n) {
 // Build LOCAL date without timezone shift
 const buildLocal = (y, m, d, hh, mm) => new Date(y, m - 1, d, hh, mm, 0);
 
-const ROUND_OPTIONS = ["L1", "L2", "L3", "Manager", "Client", "HR"];
+const ROUND_OPTIONS = [
+  "L1",
+  "L2",
+  "L3",
+  "Manager",
+  "Client",
+  "HR",
+  "Assessment",
+  "Screening",
+];
 const COMPANY_OPTIONS = ["MNC", "Mid Range", "Startup"];
 const TECH_OPTIONS = [
   "Python",

@@ -21,7 +21,16 @@ function toPureISTString(date) {
   );
 }
 
-const ROUND_OPTIONS = ["L1", "L2", "L3", "Manager", "Client", "HR"];
+const ROUND_OPTIONS = [
+  "L1",
+  "L2",
+  "L3",
+  "Manager",
+  "Client",
+  "HR",
+  "Assessment",
+  "Screening",
+];
 const COMPANY_OPTIONS = ["MNC", "Mid Range", "Startup"];
 const TECH_OPTIONS = [
   "Python",
