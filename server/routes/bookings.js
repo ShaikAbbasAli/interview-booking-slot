@@ -91,11 +91,10 @@ router.get("/me", auth, async (req, res) => {
 --------------------------------------------------------- */
 router.get("/today", auth, async (req, res) => {
   try {
-    // Get IST local date correctly (NO OFFSET MATH)
-    const nowIST = new Date();   // This is already your local IST system time
-    const y = nowIST.getFullYear();
-    const m = pad(nowIST.getMonth() + 1);
-    const d = pad(nowIST.getDate());
+    const nowIST = new Date(Date.now() + IST_OFFSET);
+    const y = nowIST.getUTCFullYear();
+    const m = pad(nowIST.getUTCMonth() + 1);
+    const d = pad(nowIST.getUTCDate());
 
     const { start, end } = dayStartEndIST(`${y}-${m}-${d}`);
 
@@ -126,13 +125,11 @@ router.get("/today", auth, async (req, res) => {
     });
 
     res.json(mapped);
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 
 /* ---------------------------------------------------------
