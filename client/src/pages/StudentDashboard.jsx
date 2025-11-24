@@ -3,27 +3,42 @@ import API from "../services/api";
 
 export default function Dashboard() {
   const user = JSON.parse(localStorage.getItem("user"));
-  const [myBookings, setMyBookings] = useState([]);
+  const [todayBookings, setTodayBookings] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadBookings();
+    loadTodayBookings();
   }, []);
 
-  async function loadBookings() {
+  async function loadTodayBookings() {
     try {
       setLoading(true);
+
       const res = await API.get("/bookings/me");
-      setMyBookings(res.data);  // still used for today's count
+      const allBookings = res.data; // ALL bookings (IST strings)
+
+      // --- Get Today IST Date ---
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const todayStr = `${yyyy}-${mm}-${dd}`; // "2025-01-15"
+
+      // --- Filter only today's bookings ---
+      const todays = allBookings.filter((b) => {
+        if (!b.slotStart) return false;
+        return b.slotStart.startsWith(todayStr);
+      });
+
+      setTodayBookings(todays.length);
+
     } catch (err) {
       console.error(err);
-      setMyBookings([]);
+      setTodayBookings(0);
     } finally {
       setLoading(false);
     }
   }
-
-  const todayCount = myBookings.length;
 
   return (
     <div className="p-4">
@@ -33,12 +48,17 @@ export default function Dashboard() {
       {/* TOP CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 
-        {/* Today’s Booking Count */}
+        {/* Today's Booking Count */}
         <div className="p-4 bg-slate-800 rounded-xl shadow">
           <div className="text-sm text-slate-400">Today's Bookings</div>
-          <div className="text-3xl font-bold text-cyan-400">
-            {todayCount} / 5
-          </div>
+
+          {loading ? (
+            <div className="text-xl text-cyan-300">Loading...</div>
+          ) : (
+            <div className="text-3xl font-bold text-cyan-400">
+              {todayBookings} / 5
+            </div>
+          )}
         </div>
 
         {/* Status */}
