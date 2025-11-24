@@ -3,10 +3,22 @@ import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
+// SAFE PARSER FOR LOCAL TIME (supports 24:00 → 00:00 next day)
 function parseLocal(dtString) {
+  if (!dtString || typeof dtString !== "string" || !dtString.includes("T")) {
+    return new Date();
+  }
+
   const [datePart, timePart] = dtString.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm] = timePart.split(":").map(Number);
+  let [hh, mm] = timePart.split(":").map(Number);
+
+  // ⭐ Handle 24:00 → treat as next day 00:00
+  if (hh === 24) {
+    const dt = new Date(y, m - 1, d + 1, 0, mm);
+    return dt;
+  }
+
   return new Date(y, m - 1, d, hh, mm);
 }
 
@@ -15,16 +27,23 @@ export default function MyBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Load bookings
   async function loadBookings() {
-    const res = await API.get("/bookings/me");
+    try {
+      const res = await API.get("/bookings/me");
 
-    // ⭐ Sort latest first
-    const sorted = res.data.sort((a, b) => {
-      return new Date(b.slotStart) - new Date(a.slotStart);
-    });
+      // Sort latest first
+      const sorted = res.data.sort(
+        (a, b) => new Date(b.slotStart) - new Date(a.slotStart)
+      );
 
-    setBookings(sorted);
-    setLoading(false);
+      setBookings(sorted);
+    } catch (err) {
+      console.error(err);
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -33,7 +52,6 @@ export default function MyBookings() {
 
   async function deleteBooking(id) {
     if (!window.confirm("Cancel booking?")) return;
-
     await API.delete(`/bookings/${id}/student`);
     loadBookings();
   }
@@ -54,7 +72,7 @@ export default function MyBookings() {
 
             const now = new Date();
 
-            // ⛔ BLOCK EDIT ONLY IF DATE < TODAY (ignore time)
+            // Compare only DATES (not time)
             const bookingDate = new Date(
               start.getFullYear(),
               start.getMonth(),
