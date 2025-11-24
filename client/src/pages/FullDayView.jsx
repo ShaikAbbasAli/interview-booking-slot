@@ -84,6 +84,8 @@ export default function FullDayView() {
 
             const isFull = s.bookingsCount >= 6;
 
+            const durationMinutes = (end - start) / 60000;
+
             return (
               <div
                 key={s.slotStart}
@@ -120,39 +122,33 @@ export default function FullDayView() {
                       Booked Students:
                     </div>
 
-                    {s.bookings.map((b) => {
-                      const st = parseLocal(b.slotStart);
-                      const en = parseLocal(b.slotEnd);
-                      const durationMin = (en - st) / 60000;
-
-                      return (
-                        <div
-                          key={b._id}
-                          className="py-2 border-b border-slate-600"
-                        >
-                          <div className="font-semibold text-white">
-                            {b.student?.name}
-                          </div>
-
-                          <div className="text-xs text-slate-400 mt-1">
-                            Company:{" "}
-                            <span className="text-white">{b.company}</span>
-                            <br />
-                            Round:{" "}
-                            <span className="text-white">{b.round}</span>
-                            <br />
-                            Duration:{" "}
-                            <span className="text-white">
-                              {durationMin === 60
-                                ? "1 hour"
-                                : durationMin === 30
-                                ? "30 minutes"
-                                : durationMin + " minutes"}
-                            </span>
-                          </div>
+                    {s.bookings.map((b) => (
+                      <div
+                        key={b._id}
+                        className="py-2 border-b border-slate-600"
+                      >
+                        <div className="font-semibold text-white">
+                          {b.student?.name}
                         </div>
-                      );
-                    })}
+
+                        <div className="text-xs text-slate-400 mt-1">
+                          Company:{" "}
+                          <span className="text-white">{b.company}</span>
+                          <br />
+                          Round:{" "}
+                          <span className="text-white">{b.round}</span>
+                          <br />
+                          Duration:{" "}
+                          <span className="text-white">
+                            {durationMinutes === 60
+                              ? "1 hour"
+                              : durationMinutes === 30
+                              ? "30 minutes"
+                              : durationMinutes + " minutes"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
