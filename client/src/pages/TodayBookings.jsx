@@ -7,33 +7,26 @@ function parseLocal(dtString) {
   if (!dtString || typeof dtString !== "string" || !dtString.includes("T")) {
     return new Date();
   }
-  const [d, t] = dtString.split("T");
-  const [y, m, dd] = d.split("-").map(Number);
-  const [hh, mm] = t.split(":").map(Number);
-  return new Date(y, m - 1, dd, hh, mm);
+
+  const [datePart, timePart] = dtString.split("T");
+  const [y, m, d] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  return new Date(y, m - 1, d, hh, mm);
 }
 
 export default function TodayBookings() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ⭐ CALENDAR DATE STATE
-  const today = new Date();
-  const defaultDate = today.toISOString().split("T")[0];
-  const [selectedDate, setSelectedDate] = useState(defaultDate);
-
   // Pagination states
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  /* ------------------------------------------
-     LOAD BOOKINGS BASED ON DATE
-  ------------------------------------------- */
-  async function loadData(date) {
+  async function loadToday() {
     try {
       setLoading(true);
 
-      const res = await API.get(`/bookings/by-date?date=${date}`);
+      const res = await API.get("/bookings/today");
 
       const sorted = res.data.sort(
         (a, b) => new Date(a.slotStart) - new Date(b.slotStart)
@@ -49,10 +42,10 @@ export default function TodayBookings() {
   }
 
   useEffect(() => {
-    loadData(selectedDate);
-  }, [selectedDate]);
+    loadToday();
+  }, []);
 
-  /* ----------- PAGINATION ------------------ */
+  // Pagination logic
   const totalPages = Math.ceil(rows.length / pageSize);
   const startIndex = (page - 1) * pageSize;
   const visibleRows = rows.slice(startIndex, startIndex + pageSize);
@@ -62,25 +55,9 @@ export default function TodayBookings() {
 
   return (
     <div className="p-6">
-
-      {/* TITLE */}
       <h2 className="text-3xl mb-6 font-bold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
-        Slot Booking Details
+        Today Slot Book Details
       </h2>
-
-      {/* ⭐ DATE PICKER */}
-      <div className="mb-5">
-        <label className="text-sm text-slate-300">Select Date</label>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => {
-            setPage(1);
-            setSelectedDate(e.target.value);
-          }}
-          className="ml-3 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white"
-        />
-      </div>
 
       {/* LOADING */}
       {loading ? (
@@ -89,7 +66,7 @@ export default function TodayBookings() {
         </div>
       ) : rows.length === 0 ? (
         <div className="p-6 bg-slate-800/60 rounded-xl border border-slate-700 text-center shadow-lg">
-          No booked slots for this date.
+          No slots booked for today.
         </div>
       ) : (
         <>
@@ -97,7 +74,7 @@ export default function TodayBookings() {
           <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3">
             <div className="text-slate-300">
               Showing{" "}
-              <span className="text-cyan-400 font-bold">{startIndex + 1}</span>–
+              <span className="text-cyan-400 font-bold">{startIndex + 1}</span>–{" "}
               <span className="text-cyan-400 font-bold">
                 {Math.min(startIndex + pageSize, rows.length)}
               </span>{" "}
@@ -121,29 +98,26 @@ export default function TodayBookings() {
             </select>
           </div>
 
-          {/* TABLE */}
+          {/* TABLE WRAPPER */}
           <div
             className="
               bg-slate-900/60 backdrop-blur-lg border border-slate-700 
               rounded-xl shadow-xl overflow-hidden
             "
           >
+            {/* Desktop = full table | Mobile = scroll */}
             <div className="overflow-x-auto md:overflow-x-visible">
-              <table className="min-w-full text-sm text-left">
+              <table className="min-w-full text-sm text-left table-auto md:table-fixed">
                 <thead className="bg-slate-900/80 sticky top-0">
                   <tr className="text-cyan-300 border-b border-slate-700">
-                    {[
-                      "S.No",
-                      "Student",
-                      "Slot Time",
-                      "Duration",
-                      "Round",
-                      "Company",
-                      "Technology",
-                      "Booked Time",
-                    ].map((h, i) => (
-                      <TableHead key={i}>{h}</TableHead>
-                    ))}
+                    <TableHead>S.No</TableHead>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Slot Time</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Round</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead>Technology</TableHead>
+                    <TableHead>Booked Time</TableHead>
                   </tr>
                 </thead>
 
@@ -151,7 +125,7 @@ export default function TodayBookings() {
                   {visibleRows.map((r, idx) => {
                     const s = parseLocal(r.slotStart);
                     const e = parseLocal(r.slotEnd);
-                    const c = parseLocal(r.createdAt);
+                    const created = parseLocal(r.createdAt);
 
                     return (
                       <tr
@@ -160,12 +134,14 @@ export default function TodayBookings() {
                           idx % 2 === 0
                             ? "bg-slate-800/50"
                             : "bg-slate-700/40"
-                        } hover:bg-slate-600/40 transition`}
+                        } hover:bg-slate-600/40 transition duration-200`}
                       >
                         <TableCell>{startIndex + idx + 1}</TableCell>
-                        <TableCell>{r.studentName}</TableCell>
+                        <TableCell className="whitespace-nowrap md:whitespace-normal">
+                          {r.studentName}
+                        </TableCell>
 
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap md:whitespace-normal">
                           <span className="text-cyan-300 font-semibold">
                             {format(s, "hh:mm a")}
                           </span>{" "}
@@ -176,16 +152,16 @@ export default function TodayBookings() {
                           {r.duration === 60
                             ? "1 hour"
                             : r.duration === 30
-                            ? "30 min"
-                            : r.duration + " min"}
+                            ? "30 minutes"
+                            : r.duration + " minutes"}
                         </TableCell>
 
                         <TableCell>{r.round}</TableCell>
                         <TableCell>{r.company}</TableCell>
                         <TableCell>{r.technology}</TableCell>
 
-                        <TableCell>
-                          {format(c, "dd MMM yyyy, hh:mm a")}
+                        <TableCell className="whitespace-nowrap md:whitespace-normal">
+                          {format(created, "dd MMM yyyy, hh:mm a")}
                         </TableCell>
                       </tr>
                     );
@@ -195,7 +171,7 @@ export default function TodayBookings() {
             </div>
           </div>
 
-          {/* PAGINATION */}
+          {/* PAGINATION BUTTONS */}
           <Pagination
             page={page}
             totalPages={totalPages}
@@ -209,54 +185,69 @@ export default function TodayBookings() {
   );
 }
 
-/* TABLE HEAD */
+/* -------------------------- */
+/* REUSABLE TABLE COMPONENTS  */
+/* -------------------------- */
+
 function TableHead({ children }) {
   return (
-    <th className="px-4 py-3 text-sm font-semibold border-r border-slate-700 last:border-r-0">
+    <th className="px-4 py-3 text-sm font-semibold tracking-wide border-r border-slate-700 last:border-r-0">
       {children}
     </th>
   );
 }
 
-/* TABLE CELL */
-function TableCell({ children }) {
+function TableCell({ children, className = "" }) {
   return (
-    <td className="px-4 py-3 border-b border-slate-700/40 text-slate-200">
+    <td
+      className={`
+        px-4 py-3 border-b border-slate-700/40 text-slate-200 
+        ${className}
+      `}
+    >
       {children}
     </td>
   );
 }
 
-/* PAGINATION */
+/* -------------------------- */
+/*     BEAUTIFUL PAGINATION   */
+/* -------------------------- */
+
 function Pagination({ page, totalPages, prevPage, nextPage, setPage }) {
+  const pages = [];
+
+  for (let i = 1; i <= totalPages; i++) pages.push(i);
+
   return (
     <div className="flex justify-center items-center gap-2 mt-4 flex-wrap">
       <button
         onClick={prevPage}
         disabled={page === 1}
-        className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg disabled:opacity-40 hover:bg-slate-700"
+        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600 disabled:opacity-40 hover:bg-slate-700 transition"
       >
         Prev
       </button>
 
-      {[...Array(totalPages)].map((_, i) => (
+      {/* Page numbers */}
+      {pages.map((p) => (
         <button
-          key={i}
-          onClick={() => setPage(i + 1)}
+          key={p}
+          onClick={() => setPage(p)}
           className={`px-4 py-2 rounded-lg border transition ${
-            page === i + 1
+            page === p
               ? "bg-cyan-600 text-white border-cyan-400"
               : "bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700"
           }`}
         >
-          {i + 1}
+          {p}
         </button>
       ))}
 
       <button
         onClick={nextPage}
         disabled={page === totalPages}
-        className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg disabled:opacity-40 hover:bg-slate-700"
+        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600 disabled:opacity-40 hover:bg-slate-700 transition"
       >
         Next
       </button>
