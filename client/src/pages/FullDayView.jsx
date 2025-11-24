@@ -3,11 +3,16 @@ import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-// Local datetime parser (NO timezone shift)
+// SAFE parser (prevents split undefined errors)
 function parseLocal(dtString) {
+  if (!dtString || typeof dtString !== "string" || !dtString.includes("T")) {
+    return new Date();
+  }
+
   const [datePart, timePart] = dtString.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm] = timePart.split(":").map(Number);
+
   return new Date(y, m - 1, d, hh, mm, 0);
 }
 
@@ -84,8 +89,6 @@ export default function FullDayView() {
 
             const isFull = s.bookingsCount >= 6;
 
-            const durationMinutes = (end - start) / 60000;
-
             return (
               <div
                 key={s.slotStart}
@@ -140,11 +143,11 @@ export default function FullDayView() {
                           <br />
                           Duration:{" "}
                           <span className="text-white">
-                            {durationMinutes === 60
+                            {b.duration === 60
                               ? "1 hour"
-                              : durationMinutes === 30
+                              : b.duration === 30
                               ? "30 minutes"
-                              : durationMinutes + " minutes"}
+                              : b.duration + " minutes"}
                           </span>
                         </div>
                       </div>
@@ -170,7 +173,7 @@ export default function FullDayView() {
                 )}
 
                 {/* PAST SLOT */}
-                {!isAdmin && isPastSlot && !isFull && (
+                {!isAdmin && isPastSlot && (
                   <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
                     Past Slot
                   </div>
