@@ -3,8 +3,19 @@ import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-// Local datetime parser (NO timezone shift)
+/* ----------------------------------------------------------
+   SAFE LOCAL PARSER (Prevents crash if dtString is undefined)
+----------------------------------------------------------- */
 function parseLocal(dtString) {
+  if (
+    !dtString ||
+    typeof dtString !== "string" ||
+    !dtString.includes("T")
+  ) {
+    console.warn("Invalid datetime received:", dtString);
+    return new Date(); // fallback to avoid crash
+  }
+
   const [datePart, timePart] = dtString.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm] = timePart.split(":").map(Number);
@@ -21,6 +32,7 @@ export default function FullDayView() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user?.role === "admin";
 
+  // Today's date
   const today = new Date();
   const defaultDate = today.toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -57,9 +69,11 @@ export default function FullDayView() {
     <div className="pb-14">
       <h2 className="text-3xl mb-4 text-cyan-400">Interview Slots</h2>
 
-      {/* Date Picker */}
+      {/* DATE PICKER */}
       <div className="mb-4">
-        <label className="text-sm text-slate-300 block mb-1">Select Date</label>
+        <label className="text-sm text-slate-300 block mb-1">
+          Select Date
+        </label>
         <input
           type="date"
           value={selectedDate}
@@ -72,12 +86,19 @@ export default function FullDayView() {
         <div className="p-4 bg-slate-700 rounded">Loading...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          
           {slots.map((s) => {
+
+            /** SAFETY CHECK: Skip corrupted slots */
+            if (!s.slotStart || !s.slotEnd) {
+              console.warn("Skipping invalid slot:", s);
+              return null;
+            }
+
             const start = parseLocal(s.slotStart);
             const end = parseLocal(s.slotEnd);
 
             const isExpanded = expanded === s.slotStart;
-
             const isSlotFull = s.bookingsCount >= 6;
 
             const slotDurationMin = (end - start) / 60000;
@@ -91,6 +112,7 @@ export default function FullDayView() {
                   isSlotFull ? "bg-red-700" : colorForCount(s.bookingsCount)
                 } ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
               >
+
                 {/* SLOT HEADER */}
                 <div
                   className="cursor-pointer select-none"
@@ -117,7 +139,7 @@ export default function FullDayView() {
                   </div>
                 </div>
 
-                {/* EXPANDED BOOKINGS */}
+                {/* EXPANDED LIST */}
                 {isExpanded && s.bookingsCount > 0 && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
@@ -125,11 +147,17 @@ export default function FullDayView() {
                     </div>
 
                     {s.bookings.map((b) => {
+
+                      /** SAFETY CHECK FOR EACH BOOKING */
+                      if (!b.slotStart || !b.slotEnd) {
+                        console.warn("Skipping invalid booking:", b);
+                        return null;
+                      }
+
                       const bs = parseLocal(b.slotStart);
                       const be = parseLocal(b.slotEnd);
                       const durMin = (be - bs) / 60000;
-                      const durText =
-                        durMin === 60 ? "1 Hour" : "30 Minutes";
+                      const durText = durMin === 60 ? "1 Hour" : "30 Minutes";
 
                       return (
                         <div
@@ -156,7 +184,7 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* STUDENT BOOK BUTTON */}
+                {/* BOOK SLOT BUTTON */}
                 {!isAdmin && !isSlotFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -179,6 +207,7 @@ export default function FullDayView() {
                     {isSlotFull ? "Slot Full" : "Seats Available"}
                   </div>
                 )}
+
               </div>
             );
           })}
