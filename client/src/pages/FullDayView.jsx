@@ -60,9 +60,7 @@ export default function FullDayView() {
 
       {/* DATE PICKER */}
       <div className="mb-4">
-        <label className="text-sm text-slate-300 block mb-1">
-          Select Date
-        </label>
+        <label className="text-sm text-slate-300 block mb-1">Select Date</label>
         <input
           type="date"
           value={selectedDate}
@@ -81,7 +79,6 @@ export default function FullDayView() {
 
             const isExpanded = expanded === s.slotStart;
 
-            // 🚫 PAST SLOT CHECK
             const now = new Date();
             const isPastSlot = start < now;
 
@@ -124,18 +121,9 @@ export default function FullDayView() {
                     </div>
 
                     {s.bookings.map((b) => {
-                      const bookingStart = parseLocal(b.slotStart);
-                      const bookingEnd = parseLocal(b.slotEnd);
-                      const durationMinutes = Math.round(
-                        (bookingEnd.getTime() - bookingStart.getTime()) / 60000
-                      );
-
-                      let durationLabel = `${durationMinutes} Minutes`;
-                      if (durationMinutes === 60) {
-                        durationLabel = "1 Hour";
-                      } else if (durationMinutes === 30) {
-                        durationLabel = "30 Minutes";
-                      }
+                      const st = parseLocal(b.slotStart);
+                      const en = parseLocal(b.slotEnd);
+                      const durationMin = (en - st) / 60000;
 
                       return (
                         <div
@@ -145,6 +133,7 @@ export default function FullDayView() {
                           <div className="font-semibold text-white">
                             {b.student?.name}
                           </div>
+
                           <div className="text-xs text-slate-400 mt-1">
                             Company:{" "}
                             <span className="text-white">{b.company}</span>
@@ -153,7 +142,13 @@ export default function FullDayView() {
                             <span className="text-white">{b.round}</span>
                             <br />
                             Duration:{" "}
-                            <span className="text-white">{durationLabel}</span>
+                            <span className="text-white">
+                              {durationMin === 60
+                                ? "1 hour"
+                                : durationMin === 30
+                                ? "30 minutes"
+                                : durationMin + " minutes"}
+                            </span>
                           </div>
                         </div>
                       );
@@ -161,7 +156,7 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* STUDENT BUTTON / STATUS LABELS */}
+                {/* STUDENT BUTTON OR FULL/Past LABEL */}
                 {!isAdmin && !isPastSlot && !isFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -171,24 +166,24 @@ export default function FullDayView() {
                   </button>
                 )}
 
-                {/* 🚫 PAST SLOT LABEL */}
-                {!isAdmin && isPastSlot && (
-                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
-                    Past Slot
+                {/* SLOT FULL */}
+                {!isAdmin && isFull && (
+                  <div className="mt-3 px-3 py-1 w-full bg-red-800 rounded text-center text-white">
+                    Slot Full
                   </div>
                 )}
 
-                {/* 🚫 SLOT FULL LABEL for students (future slot but full) */}
-                {!isAdmin && !isPastSlot && isFull && (
-                  <div className="mt-3 px-3 py-1 w-full bg-slate-900 rounded text-center text-slate-200">
-                    Slot Full
+                {/* PAST SLOT */}
+                {!isAdmin && isPastSlot && !isFull && (
+                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
+                    Past Slot
                   </div>
                 )}
 
                 {/* ADMIN LABEL */}
                 {isAdmin && (
                   <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-sm text-slate-200">
-                    {s.bookingsCount >= 6 ? "Slot Full" : "Seats Available"}
+                    {isFull ? "Slot Full" : "Seats Available"}
                   </div>
                 )}
               </div>
