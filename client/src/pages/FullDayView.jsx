@@ -3,19 +3,8 @@ import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-/* ----------------------------------------------------------
-   SAFE LOCAL PARSER (Prevents crash if dtString is undefined)
------------------------------------------------------------ */
+// Local datetime parser (NO timezone shift)
 function parseLocal(dtString) {
-  if (
-    !dtString ||
-    typeof dtString !== "string" ||
-    !dtString.includes("T")
-  ) {
-    console.warn("Invalid datetime received:", dtString);
-    return new Date(); // fallback to avoid crash
-  }
-
   const [datePart, timePart] = dtString.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm] = timePart.split(":").map(Number);
@@ -32,7 +21,7 @@ export default function FullDayView() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user?.role === "admin";
 
-  // Today's date
+  // today's date YYYY-MM-DD
   const today = new Date();
   const defaultDate = today.toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -86,34 +75,26 @@ export default function FullDayView() {
         <div className="p-4 bg-slate-700 rounded">Loading...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          
           {slots.map((s) => {
-
-            /** SAFETY CHECK: Skip corrupted slots */
-            if (!s.slotStart || !s.slotEnd) {
-              console.warn("Skipping invalid slot:", s);
-              return null;
-            }
-
             const start = parseLocal(s.slotStart);
             const end = parseLocal(s.slotEnd);
 
             const isExpanded = expanded === s.slotStart;
-            const isSlotFull = s.bookingsCount >= 6;
 
-            const slotDurationMin = (end - start) / 60000;
-            const slotDurationText =
-              slotDurationMin === 60 ? "1 Hour" : "30 Minutes";
+            // 🚫 PAST SLOT CHECK
+            const now = new Date();
+            const isPastSlot = start < now;
+
+            const isFull = s.bookingsCount >= 6;
 
             return (
               <div
                 key={s.slotStart}
-                className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${
-                  isSlotFull ? "bg-red-700" : colorForCount(s.bookingsCount)
-                } ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
+                className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${colorForCount(
+                  s.bookingsCount
+                )} ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
               >
-
-                {/* SLOT HEADER */}
+                {/* HEADER */}
                 <div
                   className="cursor-pointer select-none"
                   onClick={() =>
@@ -130,16 +111,12 @@ export default function FullDayView() {
                     Booked: {s.bookingsCount} / 6
                   </div>
 
-                  <div className="text-sm text-white mt-1">
-                    Slot Duration: {slotDurationText}
-                  </div>
-
                   <div className="text-xs text-slate-200 mt-1">
                     {isExpanded ? "Click to collapse" : "Click to view details"}
                   </div>
                 </div>
 
-                {/* EXPANDED LIST */}
+                {/* EXPANDED DETAILS */}
                 {isExpanded && s.bookingsCount > 0 && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
@@ -147,17 +124,18 @@ export default function FullDayView() {
                     </div>
 
                     {s.bookings.map((b) => {
+                      const bookingStart = parseLocal(b.slotStart);
+                      const bookingEnd = parseLocal(b.slotEnd);
+                      const durationMinutes = Math.round(
+                        (bookingEnd.getTime() - bookingStart.getTime()) / 60000
+                      );
 
-                      /** SAFETY CHECK FOR EACH BOOKING */
-                      if (!b.slotStart || !b.slotEnd) {
-                        console.warn("Skipping invalid booking:", b);
-                        return null;
+                      let durationLabel = `${durationMinutes} Minutes`;
+                      if (durationMinutes === 60) {
+                        durationLabel = "1 Hour";
+                      } else if (durationMinutes === 30) {
+                        durationLabel = "30 Minutes";
                       }
-
-                      const bs = parseLocal(b.slotStart);
-                      const be = parseLocal(b.slotEnd);
-                      const durMin = (be - bs) / 60000;
-                      const durText = durMin === 60 ? "1 Hour" : "30 Minutes";
 
                       return (
                         <div
@@ -167,7 +145,6 @@ export default function FullDayView() {
                           <div className="font-semibold text-white">
                             {b.student?.name}
                           </div>
-
                           <div className="text-xs text-slate-400 mt-1">
                             Company:{" "}
                             <span className="text-white">{b.company}</span>
@@ -176,7 +153,7 @@ export default function FullDayView() {
                             <span className="text-white">{b.round}</span>
                             <br />
                             Duration:{" "}
-                            <span className="text-white">{durText}</span>
+                            <span className="text-white">{durationLabel}</span>
                           </div>
                         </div>
                       );
@@ -184,8 +161,8 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* BOOK SLOT BUTTON */}
-                {!isAdmin && !isSlotFull && (
+                {/* STUDENT BUTTON / STATUS LABELS */}
+                {!isAdmin && !isPastSlot && !isFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
                     onClick={() => book(s.slotStart)}
@@ -194,9 +171,16 @@ export default function FullDayView() {
                   </button>
                 )}
 
-                {/* SLOT FULL LABEL */}
-                {!isAdmin && isSlotFull && (
-                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-300">
+                {/* 🚫 PAST SLOT LABEL */}
+                {!isAdmin && isPastSlot && (
+                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
+                    Past Slot
+                  </div>
+                )}
+
+                {/* 🚫 SLOT FULL LABEL for students (future slot but full) */}
+                {!isAdmin && !isPastSlot && isFull && (
+                  <div className="mt-3 px-3 py-1 w-full bg-slate-900 rounded text-center text-slate-200">
                     Slot Full
                   </div>
                 )}
@@ -204,10 +188,9 @@ export default function FullDayView() {
                 {/* ADMIN LABEL */}
                 {isAdmin && (
                   <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-sm text-slate-200">
-                    {isSlotFull ? "Slot Full" : "Seats Available"}
+                    {s.bookingsCount >= 6 ? "Slot Full" : "Seats Available"}
                   </div>
                 )}
-
               </div>
             );
           })}
