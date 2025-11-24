@@ -33,7 +33,8 @@ export default function EditBooking() {
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
 
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+  // 9 → 23
+  const hours = Array.from({ length: 15 }, (_, i) => i + 9);
   const minutes = ["00", "30"];
 
   useEffect(() => {
@@ -78,24 +79,51 @@ export default function EditBooking() {
 
     const now = new Date();
 
-    // BLOCK EDITING PAST DATE
     const bookingDay = new Date(Y, M - 1, D);
-    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
     if (bookingDay < todayDate) {
       alert("Cannot edit past dates.");
       return;
     }
 
-    // BLOCK EDITING PAST TIME (if same day)
     if (bookingDay.getTime() === todayDate.getTime() && startIST < now) {
       alert("Cannot edit past time slots.");
       return;
     }
 
+    if (![0, 30].includes(startIST.getMinutes())) {
+      alert("Start time must be at :00 or :30.");
+      return;
+    }
+
+    if (
+      endIST.getDate() !== startIST.getDate() &&
+      (endIST.getHours() !== 0 || endIST.getMinutes() !== 0)
+    ) {
+      alert("End time cannot go beyond 12:00 AM (midnight).");
+      return;
+    }
+
+    // Prepare end date string (might be next day at 00:00)
+    let endDateString = date;
+    if (endIST.getDate() !== startIST.getDate()) {
+      const nextDay = new Date(Y, M - 1, D + 1);
+      const ny = nextDay.getFullYear();
+      const nm = pad(nextDay.getMonth() + 1);
+      const nd = pad(nextDay.getDate());
+      endDateString = `${ny}-${nm}-${nd}`;
+    }
+
     const payload = {
       slotStart: toPureISTString(startIST),
-      slotEnd: toPureISTString(endIST),
+      slotEnd: `${endDateString}T${pad(endIST.getHours())}:${pad(
+        endIST.getMinutes()
+      )}`,
       company,
       round,
     };
@@ -146,7 +174,9 @@ export default function EditBooking() {
               className="w-full p-2 rounded bg-slate-700"
             >
               {hours.map((h) => (
-                <option key={h} value={pad(h)}>{pad(h)}</option>
+                <option key={h} value={pad(h)}>
+                  {pad(h)}
+                </option>
               ))}
             </select>
           </div>
@@ -158,8 +188,10 @@ export default function EditBooking() {
               onChange={(e) => setMinute(e.target.value)}
               className="w-full p-2 rounded bg-slate-700"
             >
-              {minutes.map((m) => (
-                <option key={m} value={m}>{m}</option>
+              {["00", "30"].map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
               ))}
             </select>
           </div>

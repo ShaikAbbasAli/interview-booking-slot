@@ -3,7 +3,7 @@ import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-// SAFE parser (prevents split undefined errors)
+// SAFE parser
 function parseLocal(dtString) {
   if (!dtString || typeof dtString !== "string" || !dtString.includes("T")) {
     return new Date();
@@ -26,7 +26,6 @@ export default function FullDayView() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user?.role === "admin";
 
-  // today's date YYYY-MM-DD
   const today = new Date();
   const defaultDate = today.toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -63,7 +62,6 @@ export default function FullDayView() {
     <div className="pb-14">
       <h2 className="text-3xl mb-4 text-cyan-400">Interview Slots</h2>
 
-      {/* DATE PICKER */}
       <div className="mb-4">
         <label className="text-sm text-slate-300 block mb-1">Select Date</label>
         <input
@@ -86,7 +84,6 @@ export default function FullDayView() {
 
             const now = new Date();
             const isPastSlot = start < now;
-
             const isFull = s.bookingsCount >= 6;
 
             return (
@@ -155,7 +152,7 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* STUDENT BUTTON OR FULL/Past LABEL */}
+                {/* STUDENT BUTTON / LABELS */}
                 {!isAdmin && !isPastSlot && !isFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -165,21 +162,18 @@ export default function FullDayView() {
                   </button>
                 )}
 
-                {/* SLOT FULL */}
                 {!isAdmin && isFull && (
                   <div className="mt-3 px-3 py-1 w-full bg-red-800 rounded text-center text-white">
                     Slot Full
                   </div>
                 )}
 
-                {/* PAST SLOT */}
-                {!isAdmin && isPastSlot && (
+                {!isAdmin && isPastSlot && !isFull && (
                   <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
                     Past Slot
                   </div>
                 )}
 
-                {/* ADMIN LABEL */}
                 {isAdmin && (
                   <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-sm text-slate-200">
                     {isFull ? "Slot Full" : "Seats Available"}

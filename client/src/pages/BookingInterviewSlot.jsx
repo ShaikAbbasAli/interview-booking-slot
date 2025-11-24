@@ -41,7 +41,8 @@ export default function BookInterview() {
   const [round, setRound] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+  // 9 → 23 (9AM–11PM start times)
+  const hours = Array.from({ length: 15 }, (_, i) => i + 9);
   const minutes = ["00", "30"];
 
   const timeLocked = !!preStart;
@@ -72,10 +73,14 @@ export default function BookInterview() {
 
     const now = new Date();
 
-    // ❌ Block booking for past DATE
     const selectedDateObj = new Date(Y, M - 1, D);
-    const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayDateOnly = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
+    // ❌ Block booking for past DATE
     if (selectedDateObj < todayDateOnly) {
       alert("Cannot book slots for past dates.");
       setLoading(false);
@@ -89,8 +94,39 @@ export default function BookInterview() {
       return;
     }
 
-    const slotStart = `${date}T${pad(start.getHours())}:${pad(start.getMinutes())}`;
-    const slotEnd = `${date}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
+    // ✅ Enforce alignment :00 or :30
+    if (![0, 30].includes(start.getMinutes())) {
+      alert("Start time must be at :00 or :30.");
+      setLoading(false);
+      return;
+    }
+
+    // ❌ Ensure we do NOT go beyond 24:00 (midnight)
+    if (
+      end.getDate() !== start.getDate() &&
+      (end.getHours() !== 0 || end.getMinutes() !== 0)
+    ) {
+      alert("End time cannot go beyond 12:00 AM (midnight).");
+      setLoading(false);
+      return;
+    }
+
+    // Build date string for end (might be next day at 00:00)
+    let endDateString = date;
+    if (end.getDate() !== start.getDate()) {
+      const nextDay = new Date(Y, M - 1, D + 1);
+      const ny = nextDay.getFullYear();
+      const nm = pad(nextDay.getMonth() + 1);
+      const nd = pad(nextDay.getDate());
+      endDateString = `${ny}-${nm}-${nd}`;
+    }
+
+    const slotStart = `${date}T${pad(start.getHours())}:${pad(
+      start.getMinutes()
+    )}`;
+    const slotEnd = `${endDateString}T${pad(end.getHours())}:${pad(
+      end.getMinutes()
+    )}`;
 
     try {
       await API.post("/bookings", {
@@ -110,7 +146,10 @@ export default function BookInterview() {
   };
 
   return (
-    <form className="max-w-md mx-auto bg-slate-800 p-6 rounded" onSubmit={submit}>
+    <form
+      className="max-w-md mx-auto bg-slate-800 p-6 rounded"
+      onSubmit={submit}
+    >
       <h2 className="text-xl mb-4">Book Interview</h2>
 
       <label>Date</label>
@@ -182,7 +221,10 @@ export default function BookInterview() {
         className="w-full p-2 mb-4 rounded bg-slate-700"
       />
 
-      <button className="px-4 py-2 bg-cyan-600 rounded w-full" disabled={loading}>
+      <button
+        className="px-4 py-2 bg-cyan-600 rounded w-full"
+        disabled={loading}
+      >
         {loading ? "Booking…" : "Book Slot"}
       </button>
     </form>

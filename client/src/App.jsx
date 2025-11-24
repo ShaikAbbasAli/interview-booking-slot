@@ -13,7 +13,14 @@ import NotFound from "./pages/NotFound";
 
 export default function App() {
   return (
-    <div className="min-h-screen pt-24 px-6 bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden ">
+    <div
+  className="min-h-screen pt-24 px-6 bg-linear-to-br from-slate-900/80 via-slate-800/80 to-slate-900/80 text-white overflow-hidden bg-cover bg-center"
+  style={{
+    backgroundImage:
+      "url('https://i.postimg.cc/vmXGMpr3/Aikya-AI.png')",
+    backgroundBlendMode: "overlay"
+  }}
+>
       <Navbar />
       <div className="max-w-4xl mx-auto">
         <Routes>
