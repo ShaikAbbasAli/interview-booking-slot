@@ -17,7 +17,13 @@ export default function MyBookings() {
 
   async function loadBookings() {
     const res = await API.get("/bookings/me");
-    setBookings(res.data);
+
+    // ⭐ Sort latest first
+    const sorted = res.data.sort((a, b) => {
+      return new Date(b.slotStart) - new Date(a.slotStart);
+    });
+
+    setBookings(sorted);
     setLoading(false);
   }
 
@@ -49,8 +55,16 @@ export default function MyBookings() {
             const now = new Date();
 
             // ⛔ BLOCK EDIT ONLY IF DATE < TODAY (ignore time)
-            const bookingDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-            const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const bookingDate = new Date(
+              start.getFullYear(),
+              start.getMonth(),
+              start.getDate()
+            );
+            const todayDate = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate()
+            );
 
             const isPastDate = bookingDate < todayDate;
 
@@ -61,7 +75,8 @@ export default function MyBookings() {
                 </div>
 
                 <div className="mt-1">
-                  <b>Time:</b> {format(start, "hh:mm a")} – {format(end, "hh:mm a")}
+                  <b>Time:</b> {format(start, "hh:mm a")} –{" "}
+                  {format(end, "hh:mm a")}
                 </div>
 
                 <div className="mt-1">
@@ -73,8 +88,6 @@ export default function MyBookings() {
                 </div>
 
                 <div className="flex gap-3 mt-3">
-
-                  {/* EDIT BUTTON — disabled only for past DAYS */}
                   {!isPastDate ? (
                     <button
                       onClick={() => navigate(`/edit-booking/${b._id}`)}
@@ -88,14 +101,12 @@ export default function MyBookings() {
                     </div>
                   )}
 
-                  {/* CANCEL always allowed */}
                   <button
                     onClick={() => deleteBooking(b._id)}
                     className="px-3 py-1 bg-red-600 rounded"
                   >
                     Cancel
                   </button>
-
                 </div>
               </div>
             );
