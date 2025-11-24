@@ -21,7 +21,6 @@ export default function FullDayView() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user?.role === "admin";
 
-  // today's date YYYY-MM-DD
   const today = new Date();
   const defaultDate = today.toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -58,11 +57,9 @@ export default function FullDayView() {
     <div className="pb-14">
       <h2 className="text-3xl mb-4 text-cyan-400">Interview Slots</h2>
 
-      {/* DATE PICKER */}
+      {/* Date Picker */}
       <div className="mb-4">
-        <label className="text-sm text-slate-300 block mb-1">
-          Select Date
-        </label>
+        <label className="text-sm text-slate-300 block mb-1">Select Date</label>
         <input
           type="date"
           value={selectedDate}
@@ -81,23 +78,20 @@ export default function FullDayView() {
 
             const isExpanded = expanded === s.slotStart;
 
-            // Slot full condition
             const isSlotFull = s.bookingsCount >= 6;
 
-            // Duration display
-            const durationMin = (end - start) / 60000;
-            const durationText = durationMin === 60 ? "1 Hour" : "30 Minutes";
+            const slotDurationMin = (end - start) / 60000;
+            const slotDurationText =
+              slotDurationMin === 60 ? "1 Hour" : "30 Minutes";
 
             return (
               <div
                 key={s.slotStart}
                 className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${
                   isSlotFull ? "bg-red-700" : colorForCount(s.bookingsCount)
-                } ${
-                  isExpanded ? "border-4 border-cyan-400 scale-105" : ""
-                }`}
+                } ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
               >
-                {/* HEADER */}
+                {/* SLOT HEADER */}
                 <div
                   className="cursor-pointer select-none"
                   onClick={() =>
@@ -114,8 +108,8 @@ export default function FullDayView() {
                     Booked: {s.bookingsCount} / 6
                   </div>
 
-                  <div className="text-sm mt-1 text-white">
-                    Duration: {durationText}
+                  <div className="text-sm text-white mt-1">
+                    Slot Duration: {slotDurationText}
                   </div>
 
                   <div className="text-xs text-slate-200 mt-1">
@@ -123,33 +117,46 @@ export default function FullDayView() {
                   </div>
                 </div>
 
-                {/* EXPANDED DETAILS */}
+                {/* EXPANDED BOOKINGS */}
                 {isExpanded && s.bookingsCount > 0 && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
                       Booked Students:
                     </div>
 
-                    {s.bookings.map((b) => (
-                      <div
-                        key={b._id}
-                        className="py-2 border-b border-slate-600"
-                      >
-                        <div className="font-semibold text-white">
-                          {b.student?.name}
-                        </div>
+                    {s.bookings.map((b) => {
+                      const bs = parseLocal(b.slotStart);
+                      const be = parseLocal(b.slotEnd);
+                      const durMin = (be - bs) / 60000;
+                      const durText =
+                        durMin === 60 ? "1 Hour" : "30 Minutes";
 
-                        <div className="text-xs text-slate-400 mt-1">
-                          Company: <span className="text-white">{b.company}</span> <br />
-                          Round: <span className="text-white">{b.round}</span> <br />
-                          Duration: <span className="text-white">{durationText}</span>
+                      return (
+                        <div
+                          key={b._id}
+                          className="py-2 border-b border-slate-600"
+                        >
+                          <div className="font-semibold text-white">
+                            {b.student?.name}
+                          </div>
+
+                          <div className="text-xs text-slate-400 mt-1">
+                            Company:{" "}
+                            <span className="text-white">{b.company}</span>
+                            <br />
+                            Round:{" "}
+                            <span className="text-white">{b.round}</span>
+                            <br />
+                            Duration:{" "}
+                            <span className="text-white">{durText}</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
-                {/* BOOK SLOT BUTTON (Only if NOT Admin & slot is NOT full) */}
+                {/* STUDENT BOOK BUTTON */}
                 {!isAdmin && !isSlotFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -159,7 +166,7 @@ export default function FullDayView() {
                   </button>
                 )}
 
-                {/* SLOT FULL BADGE */}
+                {/* SLOT FULL LABEL */}
                 {!isAdmin && isSlotFull && (
                   <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-300">
                     Slot Full
