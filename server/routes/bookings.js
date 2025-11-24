@@ -88,6 +88,53 @@ router.get("/me", auth, async (req, res) => {
 });
 
 /* ---------------------------------------------------------
+   GET /bookings/today — Today’s bookings (global)
+   Returns: sorted by slotStart, in IST
+--------------------------------------------------------- */
+router.get("/today", auth, async (req, res) => {
+  try {
+    // Get "today" in IST
+    const nowIST = new Date(Date.now() + IST_OFFSET);
+    const y = nowIST.getUTCFullYear();
+    const m = pad(nowIST.getUTCMonth() + 1);
+    const d = pad(nowIST.getUTCDate());
+
+    const { start, end } = dayStartEndIST(`${y}-${m}-${d}`);
+
+    const bookings = await Booking.find({
+      slotStart: { $lt: end },
+      slotEnd: { $gt: start },
+    })
+      .populate("student", "name")
+      .sort({ slotStart: 1 })
+      .lean();
+
+    const mapped = bookings.map((b) => {
+      const s = new Date(b.slotStart);
+      const e = new Date(b.slotEnd);
+      const durationMin = (e - s) / 60000;
+
+      return {
+        _id: b._id,
+        studentName: b.student?.name || "N/A",
+        company: b.company,
+        round: b.round,
+        technology: b.technology,
+        slotStart: toISTString(s),
+        slotEnd: toISTString(e),
+        duration: durationMin,
+        createdAt: toISTString(new Date(b.createdAt)),
+      };
+    });
+
+    res.json(mapped);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+/* ---------------------------------------------------------
    GET /bookings/slots?date=YYYY-MM-DD (IST) — 9:00 → 24:00
 --------------------------------------------------------- */
 router.get("/slots", auth, async (req, res) => {

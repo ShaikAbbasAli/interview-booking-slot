@@ -9,18 +9,18 @@ import ProtectedRoute from './components/ProtectedRoute';
 import VerifyOTP from "./pages/VerifyOTP";
 import AdminStudents from "./pages/AdminDashboard";
 import EditBooking from "./pages/EditBooking";
+import TodayBookings from "./pages/TodayBookings";   // ⭐ NEW
 import NotFound from "./pages/NotFound";
 
 export default function App() {
   return (
     <div
-  className="min-h-screen pt-24 px-6 bg-linear-to-br from-slate-900/80 via-slate-800/80 to-slate-900/80 text-white overflow-hidden bg-cover bg-center"
-  style={{
-    backgroundImage:
-      "url('https://i.postimg.cc/vmXGMpr3/Aikya-AI.png')",
-    backgroundBlendMode: "overlay"
-  }}
->
+      className="min-h-screen pt-24 px-6 bg-linear-to-br from-slate-900/80 via-slate-800/80 to-slate-900/80 text-white"
+      style={{
+        backgroundImage: "url('https://i.postimg.cc/vmXGMpr3/Aikya-AI.png')",
+        backgroundBlendMode: "overlay"
+      }}
+    >
       <Navbar />
       <div className="max-w-4xl mx-auto">
         <Routes>
@@ -88,7 +88,7 @@ export default function App() {
             }
           />
 
-          {/* SHARED */}
+          {/* SHARED ROUTES */}
           <Route
             path="/fullday"
             element={
@@ -98,10 +98,19 @@ export default function App() {
             }
           />
 
+          {/* ⭐ NEW — Today Bookings */}
+          <Route
+            path="/today-bookings"
+            element={
+              <ProtectedRoute>
+                <TodayBookings />
+              </ProtectedRoute>
+            }
+          />
+
           {/* NOT FOUND */}
           <Route path="*" element={<NotFound />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
-
         </Routes>
       </div>
     </div>

@@ -23,14 +23,13 @@ export default function Navbar() {
 
   return (
     <div className="fixed top-0 left-0 w-full z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-700 p-4">
-      
       <div className="flex items-center justify-between max-w-6xl mx-auto">
 
-        {/* Logo + Title */}
+        {/* Logo */}
         <Link to={user?.role === "admin" ? "/admin/students" : "/dashboard"}>
           <div className="flex items-center gap-4 cursor-pointer group transition-transform duration-300 hover:scale-105">
-            
-            <div className="relative w-14 h-14 rounded-full overflow-hidden shadow-lg transition-all duration-300 group-hover:shadow-cyan-400/60 group-hover:shadow-xl group-hover:ring-2 group-hover:ring-cyan-400/60">
+
+            <div className="relative w-14 h-14 rounded-full overflow-hidden shadow-lg group-hover:shadow-cyan-400/60 group-hover:ring-2 group-hover:ring-cyan-400/60">
               <img 
                 src="https://i.postimg.cc/vmXGMpr3/Aikya-AI.png"
                 alt="logo"
@@ -39,48 +38,54 @@ export default function Navbar() {
             </div>
 
             <div className="flex flex-col leading-tight">
-              <span className="text-3xl font-extrabold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">
+              <span className="text-3xl font-extrabold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
                 Aikya Interview
               </span>
-              <span className="text-sm text-slate-300 tracking-wide">
-                Smart Booking System
-              </span>
+              <span className="text-sm text-slate-300">Smart Booking System</span>
             </div>
 
           </div>
         </Link>
 
-        {/* Desktop Nav */}
+        {/* Desktop Menu */}
         {!isAuthPage && user && (
           <nav className="hidden md:flex gap-4 ml-6">
+            
+            {/* STUDENT LINKS */}
             {user.role === "student" && (
               <>
                 <NavButton to="/dashboard" label="Dashboard" active={location.pathname === "/dashboard"} />
                 <NavButton to="/book" label="Book Slot" active={location.pathname === "/book"} />
                 <NavButton to="/mybookings" label="My Bookings" active={location.pathname === "/mybookings"} />
                 <NavButton to="/fullday" label="Full Day View" active={location.pathname === "/fullday"} />
+
+                {/* ⭐ NEW — Today Slot Details */}
+                <NavButton to="/today-bookings" label="Today Slot Details" active={location.pathname === "/today-bookings"} />
               </>
             )}
 
+            {/* ADMIN LINKS */}
             {user.role === "admin" && (
               <>
                 <NavButton to="/admin/students" label="Students" active={location.pathname === "/admin/students"} />
                 <NavButton to="/fullday" label="Full Day View" active={location.pathname === "/fullday"} />
+
+                {/* ⭐ NEW — Today Slot Details */}
+                <NavButton to="/today-bookings" label="Today Slot Details" active={location.pathname === "/today-bookings"} />
               </>
             )}
           </nav>
         )}
 
-        {/* Desktop User + Logout */}
+        {/* Desktop User & Logout */}
         {!isAuthPage && user && (
           <div className="hidden md:flex items-center gap-3 ml-auto">
             <div className="text-sm">
-              {user.name}
-              <span className="text-xs text-slate-400"> ({user.role})</span>
+              {user.name} <span className="text-xs text-slate-400">({user.role})</span>
             </div>
             <button 
               onClick={logout}
-              className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-500 transition-all duration-300 hover:scale-105 active:scale-95"
+              className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 transition-all hover:scale-105"
             >
               Logout
             </button>
@@ -98,95 +103,72 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {menuOpen && user && !isAuthPage && (
-        <div className="
-          md:hidden mt-4 rounded-xl p-4 
-          bg-slate-800/60 backdrop-blur-xl border border-white/10
-          shadow-lg shadow-slate-900/50 space-y-4
-          animate-slideDown
-        ">
+        <div className="md:hidden mt-4 rounded-xl p-4 bg-slate-800/60 backdrop-blur-xl border border-white/10 space-y-4">
 
-          {/* Student Routes */}
+          {/* STUDENT Mobile */}
           {user.role === "student" && (
             <>
-              <MobileNavItem setMenuOpen={setMenuOpen} icon={<LayoutDashboard size={18} />} to="/dashboard" label="Dashboard" />
-              <MobileNavItem setMenuOpen={setMenuOpen} icon={<BookOpen size={18} />} to="/book" label="Book Slot" />
-              <MobileNavItem setMenuOpen={setMenuOpen} icon={<Calendar size={18} />} to="/mybookings" label="My Bookings" />
-              <MobileNavItem setMenuOpen={setMenuOpen} icon={<Calendar size={18} />} to="/fullday" label="Full Day View" />
+              <MobileNavItem icon={<LayoutDashboard size={18} />} to="/dashboard" label="Dashboard" setMenuOpen={setMenuOpen} />
+              <MobileNavItem icon={<BookOpen size={18} />} to="/book" label="Book Slot" setMenuOpen={setMenuOpen} />
+              <MobileNavItem icon={<Calendar size={18} />} to="/mybookings" label="My Bookings" setMenuOpen={setMenuOpen} />
+              <MobileNavItem icon={<Calendar size={18} />} to="/fullday" label="Full Day View" setMenuOpen={setMenuOpen} />
+
+              {/* ⭐ NEW */}
+              <MobileNavItem icon={<Calendar size={18} />} to="/today-bookings" label="Today Slot Details" setMenuOpen={setMenuOpen} />
             </>
           )}
 
-          {/* Admin Routes */}
+          {/* ADMIN Mobile */}
           {user.role === "admin" && (
             <>
-              <MobileNavItem setMenuOpen={setMenuOpen} icon={<Users size={18} />} to="/admin/students" label="Students" />
-              <MobileNavItem setMenuOpen={setMenuOpen} icon={<Calendar size={18} />} to="/fullday" label="Full Day View" />
+              <MobileNavItem icon={<Users size={18} />} to="/admin/students" label="Students" setMenuOpen={setMenuOpen} />
+              <MobileNavItem icon={<Calendar size={18} />} to="/fullday" label="Full Day View" setMenuOpen={setMenuOpen} />
+
+              {/* ⭐ NEW */}
+              <MobileNavItem icon={<Calendar size={18} />} to="/today-bookings" label="Today Slot Details" setMenuOpen={setMenuOpen} />
             </>
           )}
 
-          {/* Logout Button */}
           <button
             onClick={() => {
               setMenuOpen(false);
               logout();
             }}
-            className="
-              w-full py-3 mt-3 rounded-xl text-white font-semibold 
-              bg-red-600 hover:bg-red-500 
-              transition-all duration-300 hover:scale-105 active:scale-95
-            "
+            className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500"
           >
             Logout
           </button>
+
         </div>
       )}
     </div>
   );
 }
 
-/* -------------------------
-   Reusable Desktop Button
---------------------------*/
+/* Desktop Button */
 function NavButton({ to, label, active }) {
   return (
     <Link
       to={to}
-      className={`
-        px-4 py-2 rounded-xl text-slate-200 font-medium 
-        bg-white/5 backdrop-blur-md border border-white/10 shadow-sm 
-        hover:bg-cyan-500/20 hover:text-cyan-300 hover:shadow-cyan-400/30 
-        transition-all duration-300 hover:scale-105 active:scale-95
-        ${active ? "text-cyan-400 border-cyan-400/40 shadow-cyan-400/40" : ""}
-      `}
+      className={`px-4 py-2 rounded-xl text-slate-200 bg-white/5 border border-white/10 
+      hover:bg-cyan-500/20 hover:text-cyan-300 transition-all 
+      ${active ? "text-cyan-400 border-cyan-400" : ""}`}
     >
       {label}
     </Link>
   );
 }
 
-/* -------------------------
-   Reusable Mobile Button
---------------------------*/
+/* Mobile Button */
 function MobileNavItem({ to, label, icon, setMenuOpen }) {
   return (
     <Link
       to={to}
-      onClick={() => {
-        setMenuOpen(false);   // AUTO-CLOSE MOBILE MENU
-        window.scrollTo(0, 0);
-      }}
-      className="
-        w-full flex items-center gap-3 
-        px-4 py-3 rounded-xl 
-        bg-white/5 backdrop-blur-lg border border-white/10
-        text-slate-200 
-        hover:bg-cyan-500/20 hover:text-cyan-300 
-        hover:shadow-cyan-400/40 
-        transition-all duration-300 
-        hover:scale-[1.02] active:scale-95
-      "
+      onClick={() => setMenuOpen(false)}
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-cyan-500/20"
     >
       {icon}
-      <span className="font-medium">{label}</span>
+      <span>{label}</span>
     </Link>
   );
 }
