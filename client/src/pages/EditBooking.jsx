@@ -7,7 +7,6 @@ function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-// Convert Date → "YYYY-MM-DDTHH:mm"
 function toPureISTString(date) {
   return (
     date.getFullYear() +
@@ -27,23 +26,16 @@ export default function EditBooking() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-
   const [date, setDate] = useState("");
   const [hour, setHour] = useState("09");
   const [minute, setMinute] = useState("00");
   const [duration, setDuration] = useState(30);
-
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
-
-  const [isPastSlot, setIsPastSlot] = useState(false);
 
   const hours = Array.from({ length: 12 }, (_, i) => i + 9);
   const minutes = ["00", "30"];
 
-  /* -------------------------------------------------------
-     LOAD BOOKING (Backend sends IST string already)
-  --------------------------------------------------------- */
   useEffect(() => {
     async function load() {
       try {
@@ -56,41 +48,16 @@ export default function EditBooking() {
           return;
         }
 
-        const sIST = new Date(found.slotStart);
-        const eIST = new Date(found.slotEnd);
+        const s = new Date(found.slotStart);
+        const e = new Date(found.slotEnd);
 
-        setDate(format(sIST, "yyyy-MM-dd"));
-        setHour(pad(sIST.getHours()));
-        setMinute(pad(sIST.getMinutes()));
-        setDuration((eIST - sIST) / 60000);
+        setDate(format(s, "yyyy-MM-dd"));
+        setHour(pad(s.getHours()));
+        setMinute(pad(s.getMinutes()));
+        setDuration((e - s) / 60000);
 
         setCompany(found.company);
         setRound(found.round);
-
-        // -----------------------------
-        //  CHECK IF SLOT IS IN THE PAST
-        // -----------------------------
-        const now = new Date();
-        const today = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate()
-        );
-        const bookingDay = new Date(
-          sIST.getFullYear(),
-          sIST.getMonth(),
-          sIST.getDate()
-        );
-
-        // past date → block
-        if (bookingDay < today) {
-          setIsPastSlot(true);
-        }
-
-        // same date but time passed → block
-        if (bookingDay.getTime() === today.getTime() && sIST < now) {
-          setIsPastSlot(true);
-        }
       } catch (err) {
         alert("Failed to load booking");
         navigate("/mybookings");
@@ -102,29 +69,29 @@ export default function EditBooking() {
     load();
   }, [id, navigate]);
 
-  /* -------------------------------------------------------
-     SUBMIT — Only if not past slot
-  --------------------------------------------------------- */
   async function submit(e) {
     e.preventDefault();
 
-    if (isPastSlot) {
-      alert("Past slot cannot be edited.");
-      return;
-    }
-
     const [Y, M, D] = date.split("-").map(Number);
-
     const startIST = new Date(Y, M - 1, D, Number(hour), Number(minute));
     const endIST = new Date(startIST.getTime() + duration * 60000);
 
-    if (endIST <= startIST) return alert("End must be after start");
-    if (endIST.getHours() >= 21) return alert("End must be before 9 PM IST");
+    const now = new Date();
 
-    if (![0, 30].includes(startIST.getMinutes()))
-      return alert("Start minutes must be :00 or :30");
-    if (![0, 30].includes(endIST.getMinutes()))
-      return alert("End minutes must be :00 or :30");
+    // BLOCK EDITING PAST DATE
+    const bookingDay = new Date(Y, M - 1, D);
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (bookingDay < todayDate) {
+      alert("Cannot edit past dates.");
+      return;
+    }
+
+    // BLOCK EDITING PAST TIME (if same day)
+    if (bookingDay.getTime() === todayDate.getTime() && startIST < now) {
+      alert("Cannot edit past time slots.");
+      return;
+    }
 
     const payload = {
       slotStart: toPureISTString(startIST),
@@ -142,9 +109,6 @@ export default function EditBooking() {
     }
   }
 
-  /* -------------------------------------------------------
-     DELETE BOOKING
-  --------------------------------------------------------- */
   async function remove() {
     if (!window.confirm("Delete this booking?")) return;
     await API.delete(`/bookings/${id}/student`);
@@ -164,18 +128,11 @@ export default function EditBooking() {
 
       <h2 className="text-xl mb-4 text-cyan-400">Edit Booking</h2>
 
-      {isPastSlot && (
-        <div className="mb-4 px-3 py-2 bg-red-700 text-white rounded text-center">
-          Past Slot – Cannot Edit
-        </div>
-      )}
-
       <form onSubmit={submit}>
         <label>Date</label>
         <input
           type="date"
           value={date}
-          disabled={isPastSlot}
           onChange={(e) => setDate(e.target.value)}
           className="w-full p-2 mb-3 rounded bg-slate-700"
         />
@@ -185,14 +142,11 @@ export default function EditBooking() {
             <label>Hour</label>
             <select
               value={hour}
-              disabled={isPastSlot}
               onChange={(e) => setHour(e.target.value)}
               className="w-full p-2 rounded bg-slate-700"
             >
               {hours.map((h) => (
-                <option key={h} value={pad(h)}>
-                  {pad(h)}
-                </option>
+                <option key={h} value={pad(h)}>{pad(h)}</option>
               ))}
             </select>
           </div>
@@ -201,14 +155,11 @@ export default function EditBooking() {
             <label>Minute</label>
             <select
               value={minute}
-              disabled={isPastSlot}
               onChange={(e) => setMinute(e.target.value)}
               className="w-full p-2 rounded bg-slate-700"
             >
               {minutes.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
+                <option key={m} value={m}>{m}</option>
               ))}
             </select>
           </div>
@@ -217,7 +168,6 @@ export default function EditBooking() {
             <label>Duration</label>
             <select
               value={duration}
-              disabled={isPastSlot}
               onChange={(e) => setDuration(Number(e.target.value))}
               className="w-full p-2 rounded bg-slate-700"
             >
@@ -230,7 +180,6 @@ export default function EditBooking() {
         <label>Company</label>
         <input
           value={company}
-          disabled={isPastSlot}
           onChange={(e) => setCompany(e.target.value)}
           className="w-full p-2 mb-3 rounded bg-slate-700"
         />
@@ -238,16 +187,12 @@ export default function EditBooking() {
         <label>Round</label>
         <input
           value={round}
-          disabled={isPastSlot}
           onChange={(e) => setRound(e.target.value)}
           className="w-full p-2 mb-4 rounded bg-slate-700"
         />
 
         <div className="flex gap-3">
-          {!isPastSlot && (
-            <button className="px-3 py-1 bg-blue-600 rounded">Save</button>
-          )}
-
+          <button className="px-3 py-1 bg-blue-600 rounded">Save</button>
           <button
             type="button"
             onClick={remove}
