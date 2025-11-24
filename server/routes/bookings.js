@@ -18,7 +18,6 @@ function istStringToUTC(iso) {
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm] = timePart.split(":").map(Number);
 
-  // Build as if IST were UTC, then subtract offset
   const fakeUTC = new Date(Date.UTC(y, m - 1, d, hh, mm));
   return new Date(fakeUTC.getTime() - IST_OFFSET);
 }
@@ -41,7 +40,7 @@ function toISTString(dateUTC) {
   );
 }
 
-/* Extract midnight of IST day in UTC */
+/* Midnight of IST day in UTC */
 function dayStartEndIST(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
 
@@ -54,18 +53,16 @@ function dayStartEndIST(dateStr) {
 
 /* Check alignment (:00 or :30) in IST */
 function isAlignedTo30IST(dateUTC) {
-  const ms = dateUTC.getTime() + IST_OFFSET;
-  const ist = new Date(ms);
-  const mins = ist.getUTCMinutes();
+  const t = new Date(dateUTC.getTime() + IST_OFFSET);
+  const mins = t.getUTCMinutes();
   return mins === 0 || mins === 30;
 }
 
-/* Check working hours in IST */
+/* Check working hours (9 AM – 9 PM IST) */
 function inWorkingHoursIST(dateUTC) {
-  const ms = dateUTC.getTime() + IST_OFFSET;
-  const ist = new Date(ms);
-  const mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
-  return mins >= 540 && mins < 1260; // 09:00–21:00 IST
+  const t = new Date(dateUTC.getTime() + IST_OFFSET);
+  const mins = t.getUTCHours() * 60 + t.getUTCMinutes();
+  return mins >= 540 && mins < 1260; // 09:00–21:00
 }
 
 /* ---------------------------------------------------------
@@ -90,13 +87,14 @@ router.get("/me", auth, async (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   GET /bookings/slots?date=YYYY-MM-DD (IST)
+   GET /bookings/slots?date=YYYY-MM-DD (returns IST)
 --------------------------------------------------------- */
 router.get("/slots", auth, async (req, res) => {
   try {
     const { date } = req.query;
     if (!date) return res.status(400).json({ msg: "Date required" });
 
+    // student must be approved
     if (req.user.role === "student" && req.user.status !== "approved") {
       return res.status(403).json({ msg: "Account not approved" });
     }
@@ -130,6 +128,7 @@ router.get("/slots", auth, async (req, res) => {
       .populate("student", "name course")
       .lean();
 
+    // Attach bookings to slots (with correct IST times)
     for (const slot of slots) {
       const wsUTC = istStringToUTC(slot.slotStart);
       const weUTC = istStringToUTC(slot.slotEnd);
@@ -141,11 +140,15 @@ router.get("/slots", auth, async (req, res) => {
       );
 
       slot.bookingsCount = overlapping.length;
+
+      // IMPORTANT: Include slotStart & slotEnd to avoid crash
       slot.bookings = overlapping.map((b) => ({
         _id: b._id,
         student: b.student,
         company: b.company,
         round: b.round,
+        slotStart: toISTString(new Date(b.slotStart)),
+        slotEnd: toISTString(new Date(b.slotEnd)),
       }));
     }
 
@@ -264,32 +267,6 @@ router.put("/:id", auth, async (req, res) => {
 
     if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e - 1)))
       return res.status(400).json({ msg: "Out of allowed hours" });
-
-    const windows = [];
-    let cur = new Date(s);
-    while (cur < e) {
-      let next = new Date(cur.getTime() + 30 * 60000);
-      windows.push({ start: cur, end: next });
-      cur = next;
-    }
-
-    for (const w of windows) {
-      const c = await Booking.countDocuments({
-        slotStart: { $lt: w.end },
-        slotEnd: { $gt: w.start },
-        _id: { $ne: booking._id },
-      });
-      if (c >= 6) {
-        const ist = new Date(w.start.getTime() + IST_OFFSET);
-        return res.status(409).json({
-          msg: `Window full: ${ist.toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })}`,
-        });
-      }
-    }
 
     booking.slotStart = s;
     booking.slotEnd = e;
