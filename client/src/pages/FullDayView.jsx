@@ -1,15 +1,12 @@
-// FullDayView.jsx
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-/* ------------------------------------------------------
-   FIX: true IST date without UTC shift
------------------------------------------------------- */
+/* True IST date */
 function getTodayIST() {
   const now = new Date();
-  const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
   return ist.toISOString().split("T")[0];
 }
 
@@ -33,14 +30,11 @@ export default function FullDayView() {
   const [expanded, setExpanded] = useState(null);
 
   async function loadSlots(date) {
-    console.log("Requested IST date for slots:", date);
     try {
       setLoading(true);
       const res = await API.get(`/bookings/slots?date=${date}`);
-      console.log("FullDay slots:", res.data);
       setSlots(res.data);
-    } catch (err) {
-      console.error("Slots load failed:", err);
+    } catch {
       setSlots([]);
     } finally {
       setLoading(false);
@@ -58,8 +52,9 @@ export default function FullDayView() {
   }
 
   function book(startLocal) {
-    if (isAdmin) return;
-    navigate(`/book?date=${selectedDate}&start=${startLocal}`);
+    if (!isAdmin) {
+      navigate(`/book?date=${selectedDate}&start=${startLocal}`);
+    }
   }
 
   return (
@@ -85,7 +80,6 @@ export default function FullDayView() {
             const end = parseLocal(s.slotEnd);
 
             const isExpanded = expanded === s.slotStart;
-
             const now = new Date();
             const isPastSlot = start < now;
             const isFull = s.bookingsCount >= 6;
@@ -93,12 +87,12 @@ export default function FullDayView() {
             return (
               <div
                 key={s.slotStart}
-                className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${colorForCount(
+                className={`p-4 rounded-xl shadow-xl transition-all ${colorForCount(
                   s.bookingsCount
                 )} ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
               >
                 <div
-                  className="cursor-pointer select-none"
+                  className="cursor-pointer"
                   onClick={() =>
                     setExpanded((prev) =>
                       prev === s.slotStart ? null : s.slotStart
@@ -157,19 +151,19 @@ export default function FullDayView() {
                 )}
 
                 {!isAdmin && isFull && (
-                  <div className="mt-3 px-3 py-1 w-full bg-red-800 rounded text-center text-white">
+                  <div className="mt-3 px-3 py-1 bg-red-800 rounded text-center text-white">
                     Slot Full
                   </div>
                 )}
 
                 {!isAdmin && isPastSlot && !isFull && (
-                  <div className="mt-3 px-3 py-1 w-full bg-slate-700 rounded text-center text-slate-400">
+                  <div className="mt-3 px-3 py-1 bg-slate-700 rounded text-center text-slate-400">
                     Past Slot
                   </div>
                 )}
 
                 {isAdmin && (
-                  <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-sm text-slate-200">
+                  <div className="mt-3 px-3 py-1 bg-slate-900 rounded text-center text-slate-200">
                     {isFull ? "Slot Full" : "Seats Available"}
                   </div>
                 )}
