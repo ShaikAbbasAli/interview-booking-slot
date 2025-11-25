@@ -13,10 +13,9 @@ import toast from "react-hot-toast";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-
   const user = JSON.parse(localStorage.getItem("user") || "null");
-  const isAuthPage = location.pathname === "/auth";
 
+  const isAuthPage = location.pathname === "/auth";
   const [menuOpen, setMenuOpen] = useState(false);
 
   const logout = () => {
@@ -27,15 +26,24 @@ export default function Navbar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 w-full z-50 bg-slate-900/90 backdrop-blur-xl border-b border-slate-700/70">
+    <div className="
+      fixed top-0 left-0 w-full z-50 
+      bg-slate-900/90 backdrop-blur-xl 
+      border-b border-slate-700/70 
+      shadow-lg shadow-cyan-500/10
+    ">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
 
-        {/* ---------------- LOGO + TITLE ---------------- */}
+        {/* ------------ LOGO + TITLE ------------ */}
         <Link
           to={user?.role === "admin" ? "/admin/students" : "/dashboard"}
-          className="flex items-center gap-4"
+          className="flex items-center gap-4 select-none"
         >
-          <div className="w-14 h-14 rounded-full overflow-hidden shadow-md shadow-cyan-400/20 ring-1 ring-cyan-300/20">
+          <div className="
+            w-14 h-14 rounded-full overflow-hidden 
+            shadow-md shadow-cyan-300/20 
+            ring-2 ring-cyan-400/40
+          ">
             <img
               src="https://i.postimg.cc/vmXGMpr3/Aikya-AI.png"
               alt="logo"
@@ -44,20 +52,26 @@ export default function Navbar() {
           </div>
 
           <div className="leading-tight">
-            <div className="text-3xl font-extrabold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent tracking-wide drop-shadow-md">
+            <div className="
+              text-3xl font-extrabold 
+              tracking-wide 
+              bg-gradient-to-r from-cyan-300 via-blue-400 to-cyan-200 
+              bg-clip-text text-transparent 
+              drop-shadow-[0_0_6px_rgba(0,255,255,0.7)]
+            ">
               Aikya Interview
             </div>
-            <div className="text-xs text-slate-400 tracking-wide">
+            <div className="text-xs text-slate-400 tracking-wider">
               Smart Booking System
             </div>
           </div>
         </Link>
 
-        {/* ---------------- DESKTOP MENU ---------------- */}
+        {/* ------------ DESKTOP MENU ------------ */}
         {!isAuthPage && user && (
-          <nav className="hidden md:flex items-center gap-2 ml-10">
+          <nav className="hidden md:flex items-center gap-3 ml-10">
 
-            {/* STUDENT TABS */}
+            {/* STUDENT LINKS */}
             {user.role === "student" && (
               <>
                 <NavItem to="/dashboard" label="Dashboard" active={location.pathname === "/dashboard"} />
@@ -68,7 +82,7 @@ export default function Navbar() {
               </>
             )}
 
-            {/* ADMIN TABS */}
+            {/* ADMIN LINKS */}
             {user.role === "admin" && (
               <>
                 <NavItem to="/admin/students" label="Students" active={location.pathname === "/admin/students"} />
@@ -79,7 +93,7 @@ export default function Navbar() {
           </nav>
         )}
 
-        {/* ---------------- DESKTOP USER PANEL ---------------- */}
+        {/* ------------ USER PANEL (DESKTOP) ------------ */}
         {!isAuthPage && user && (
           <div className="hidden md:flex items-center gap-4">
             <div className="text-sm font-medium text-slate-200">
@@ -89,17 +103,25 @@ export default function Navbar() {
 
             <button
               onClick={logout}
-              className="px-4 py-2 rounded-xl bg-red-600 text-white font-semibold shadow-lg shadow-red-700/30 hover:bg-red-500 transition-all duration-200 hover:scale-105 active:scale-95"
+              className="
+                px-4 py-2 rounded-xl 
+                bg-red-600 text-white 
+                font-semibold
+                shadow-lg shadow-red-700/30 
+                hover:bg-red-500 
+                transition-all duration-200 
+                hover:scale-105 active:scale-95
+              "
             >
               Logout
             </button>
           </div>
         )}
 
-        {/* ---------------- MOBILE TOGGLE ---------------- */}
+        {/* ------------ MOBILE MENU BUTTON ------------ */}
         {user && !isAuthPage && (
           <button
-            className="md:hidden text-white"
+            className="md:hidden text-cyan-300 hover:text-cyan-200 transition"
             onClick={() => setMenuOpen(!menuOpen)}
           >
             {menuOpen ? <X size={28} /> : <Menu size={28} />}
@@ -107,10 +129,14 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* ---------------- MOBILE MENU ---------------- */}
+      {/* ------------ MOBILE MENU ------------ */}
       {menuOpen && user && !isAuthPage && (
-        <div className="md:hidden px-6 pb-5 pt-3 bg-slate-800/70 backdrop-blur-xl border-t border-slate-700/50 space-y-3 animate-fadeIn">
-
+        <div className="
+          md:hidden px-6 pb-5 pt-3 
+          bg-slate-800/90 backdrop-blur-xl 
+          border-t border-slate-700/50 
+          space-y-3 animate-slideDown
+        ">
           {user.role === "student" && (
             <>
               <MobileItem icon={<LayoutDashboard size={18} />} to="/dashboard" label="Dashboard" close={setMenuOpen} />
@@ -134,7 +160,13 @@ export default function Navbar() {
               setMenuOpen(false);
               logout();
             }}
-            className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold shadow-lg shadow-red-900/50 hover:bg-red-500 transition-all"
+            className="
+              w-full py-3 rounded-xl 
+              bg-red-600 text-white 
+              font-semibold 
+              shadow-lg shadow-red-900/50 
+              hover:bg-red-500 transition-all
+            "
           >
             Logout
           </button>
@@ -144,7 +176,7 @@ export default function Navbar() {
   );
 }
 
-/* ---------------- DESKTOP NAV ITEM ---------------- */
+/* ------------ DESKTOP NAV ITEM ------------ */
 function NavItem({ to, label, active }) {
   return (
     <Link
@@ -153,7 +185,7 @@ function NavItem({ to, label, active }) {
         px-4 py-2 rounded-xl font-medium text-sm
         transition-all duration-200
         ${active
-          ? "bg-cyan-600/30 text-cyan-300 border border-cyan-400/40 shadow shadow-cyan-400/20"
+          ? "bg-cyan-600/20 text-cyan-300 shadow shadow-cyan-300/30 border border-cyan-300/40"
           : "text-slate-300 hover:bg-white/10 hover:text-cyan-300 border border-transparent"
         }
       `}
@@ -163,7 +195,7 @@ function NavItem({ to, label, active }) {
   );
 }
 
-/* ---------------- MOBILE NAV ITEM ---------------- */
+/* ------------ MOBILE NAV ITEM ------------ */
 function MobileItem({ to, label, icon, close }) {
   return (
     <Link
