@@ -2,14 +2,26 @@ import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format, parse } from "date-fns";
 
-/* Parse IST without timezone shift */
+/* small helper */
+function pad(n) {
+  return n.toString().padStart(2, "0");
+}
+
+/* Parse IST string "yyyy-MM-dd'T'HH:mm" WITHOUT timezone shift */
 function parseLocal(dtString) {
   if (!dtString) return new Date();
   return parse(dtString, "yyyy-MM-dd'T'HH:mm", new Date());
 }
 
 export default function TodayBookings() {
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  // ✅ FIXED: use LOCAL date, not toISOString (which is UTC)
+  const now = new Date();
+  const today =
+    now.getFullYear() +
+    "-" +
+    pad(now.getMonth() + 1) +
+    "-" +
+    pad(now.getDate()); // "YYYY-MM-DD" in local time (IST on your laptop)
 
   const [selectedDate, setSelectedDate] = useState(today);
   const [rows, setRows] = useState([]);
@@ -23,7 +35,23 @@ export default function TodayBookings() {
     try {
       setLoading(true);
 
+      console.log("=== TodayBookings.loadData ===");
+      console.log("Browser local now:", new Date().toString());
+      console.log("Selected date (sent to server):", date);
+
       const res = await API.get(`/bookings/by-date?date=${date}`);
+
+      console.log("Raw response from /bookings/by-date:", res.data);
+      if (res.data[0]) {
+        console.log(
+          "First row slotStart raw:",
+          res.data[0].slotStart,
+          "slotEnd:",
+          res.data[0].slotEnd,
+          "createdAt:",
+          res.data[0].createdAt
+        );
+      }
 
       const sorted = res.data.sort(
         (a, b) => parseLocal(a.slotStart) - parseLocal(b.slotStart)
@@ -31,7 +59,7 @@ export default function TodayBookings() {
 
       setRows(sorted);
     } catch (err) {
-      console.error(err);
+      console.error("TodayBookings.loadData error:", err);
       setRows([]);
     } finally {
       setLoading(false);
@@ -54,11 +82,12 @@ export default function TodayBookings() {
           Slot Book Details
         </h2>
 
-        {/* Calendar Selector */}
+        {/* Calendar Selector (client-side calendar) */}
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => {
+            console.log("Date picker changed to:", e.target.value);
             setSelectedDate(e.target.value);
             setPage(1);
           }}
@@ -79,8 +108,8 @@ export default function TodayBookings() {
         <>
           {/* Pagination Info */}
           <div className="flex justify-between mb-3 text-slate-300">
-            Showing {startIndex + 1}–{Math.min(startIndex + pageSize, rows.length)} of{" "}
-            {rows.length}
+            Showing {startIndex + 1}–
+            {Math.min(startIndex + pageSize, rows.length)} of {rows.length}
           </div>
 
           {/* Table Wrapper */}
@@ -105,6 +134,15 @@ export default function TodayBookings() {
                     const s = parseLocal(r.slotStart);
                     const e = parseLocal(r.slotEnd);
                     const created = parseLocal(r.createdAt);
+
+                    if (idx === 0) {
+                      console.log(
+                        "Row[0] parsed dates:",
+                        "slotStart:", s.toString(),
+                        "slotEnd:", e.toString(),
+                        "created:", created.toString()
+                      );
+                    }
 
                     return (
                       <tr
@@ -146,11 +184,7 @@ export default function TodayBookings() {
             </div>
           </div>
 
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            setPage={setPage}
-          />
+          <Pagination page={page} totalPages={totalPages} setPage={setPage} />
         </>
       )}
     </div>

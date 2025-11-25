@@ -19,7 +19,10 @@ function istStringToUTC(iso) {
   const [hh, mm] = timePart.split(":").map(Number);
 
   const fakeUTC = new Date(Date.UTC(y, m - 1, d, hh, mm));
-  return new Date(fakeUTC.getTime() - IST_OFFSET);
+  const utc = new Date(fakeUTC.getTime() - IST_OFFSET);
+
+  console.log("[istStringToUTC] iso:", iso, "=> UTC:", utc.toISOString());
+  return utc;
 }
 
 /* Convert UTC Date -> IST "YYYY-MM-DDTHH:mm" */
@@ -27,7 +30,7 @@ function toISTString(dateUTC) {
   const ms = dateUTC.getTime() + IST_OFFSET;
   const ist = new Date(ms);
 
-  return (
+  const str =
     ist.getUTCFullYear() +
     "-" +
     pad(ist.getUTCMonth() + 1) +
@@ -36,8 +39,10 @@ function toISTString(dateUTC) {
     "T" +
     pad(ist.getUTCHours()) +
     ":" +
-    pad(ist.getUTCMinutes())
-  );
+    pad(ist.getUTCMinutes());
+
+  console.log("[toISTString] UTC:", dateUTC.toISOString(), "=> IST str:", str);
+  return str;
 }
 
 /* Midnight of IST day in UTC */
@@ -47,6 +52,12 @@ function dayStartEndIST(dateStr) {
   const fakeUTC = new Date(Date.UTC(y, m - 1, d, 0, 0));
   const start = new Date(fakeUTC.getTime() - IST_OFFSET);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  console.log(
+    "[dayStartEndIST] dateStr:", dateStr,
+    "=> startUTC:", start.toISOString(),
+    "endUTC:", end.toISOString()
+  );
 
   return { start, end };
 }
@@ -82,6 +93,7 @@ router.get("/me", auth, async (req, res) => {
 
     res.json(mapped);
   } catch (err) {
+    console.error("[GET /bookings/me] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
@@ -91,12 +103,23 @@ router.get("/me", auth, async (req, res) => {
 --------------------------------------------------------- */
 router.get("/today", auth, async (req, res) => {
   try {
+    console.log("===== /bookings/today =====");
+    console.log("Server now UTC:", new Date().toISOString());
+
     const nowIST = new Date(Date.now() + IST_OFFSET);
+    console.log("Computed nowIST (local IST) millis:", nowIST.toISOString());
+
     const y = nowIST.getUTCFullYear();
     const m = pad(nowIST.getUTCMonth() + 1);
     const d = pad(nowIST.getUTCDate());
+    console.log("IST date components y/m/d:", y, m, d);
 
     const { start, end } = dayStartEndIST(`${y}-${m}-${d}`);
+    console.log(
+      "[/today] Final day range UTC:",
+      "start =", start.toISOString(),
+      "end =", end.toISOString()
+    );
 
     const bookings = await Booking.find({
       slotStart: { $lt: end },
@@ -106,10 +129,18 @@ router.get("/today", auth, async (req, res) => {
       .sort({ slotStart: 1 })
       .lean();
 
+    console.log("[/today] bookings count:", bookings.length);
+
     const mapped = bookings.map((b) => {
       const s = new Date(b.slotStart);
       const e = new Date(b.slotEnd);
       const durationMin = (e - s) / 60000;
+
+      console.log(
+        "[/today] raw booking:",
+        "slotStartUTC =", s.toISOString(),
+        "slotEndUTC =", e.toISOString()
+      );
 
       return {
         _id: b._id,
@@ -126,11 +157,10 @@ router.get("/today", auth, async (req, res) => {
 
     res.json(mapped);
   } catch (err) {
-    console.error(err);
+    console.error("[GET /bookings/today] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 /* ---------------------------------------------------------
    ⭐ NEW: GET /bookings/by-date?date=YYYY-MM-DD
@@ -138,15 +168,25 @@ router.get("/today", auth, async (req, res) => {
 --------------------------------------------------------- */
 router.get("/by-date", auth, async (req, res) => {
   try {
+    console.log("===== /bookings/by-date =====");
+    console.log("Server now UTC:", new Date().toISOString());
+
     const todayIST = new Date(Date.now() + IST_OFFSET);
     const defaultDate = todayIST.toISOString().split("T")[0];
 
     const dateStr = req.query.date || defaultDate;
+    console.log("[/by-date] query.date =", req.query.date, "=> using dateStr =", dateStr);
 
     const [y, m, d] = dateStr.split("-").map(Number);
     const midnightUTC = new Date(Date.UTC(y, m - 1, d, 0, 0));
     const dayStartUTC = new Date(midnightUTC.getTime() - IST_OFFSET);
     const dayEndUTC = new Date(dayStartUTC.getTime() + 86400000);
+
+    console.log(
+      "[/by-date] midnightUTC:", midnightUTC.toISOString(),
+      "dayStartUTC:", dayStartUTC.toISOString(),
+      "dayEndUTC:", dayEndUTC.toISOString()
+    );
 
     const bookings = await Booking.find({
       slotStart: { $lt: dayEndUTC },
@@ -155,9 +195,18 @@ router.get("/by-date", auth, async (req, res) => {
       .populate("student", "name")
       .lean();
 
+    console.log("[/by-date] bookings found:", bookings.length);
+
     const list = bookings.map((b) => {
       const durationMin =
         (new Date(b.slotEnd) - new Date(b.slotStart)) / 60000;
+
+      console.log(
+        "[/by-date] raw booking:",
+        "slotStartUTC =", new Date(b.slotStart).toISOString(),
+        "slotEndUTC =", new Date(b.slotEnd).toISOString(),
+        "createdAtUTC =", new Date(b.createdAt).toISOString()
+      );
 
       return {
         _id: b._id,
@@ -180,11 +229,10 @@ router.get("/by-date", auth, async (req, res) => {
 
     res.json(list);
   } catch (err) {
-    console.error(err);
+    console.error("[GET /bookings/by-date] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 /* ---------------------------------------------------------
    GET /bookings/slots — Full day slot windows 9:00–24:00
@@ -193,6 +241,9 @@ router.get("/slots", auth, async (req, res) => {
   try {
     const { date } = req.query;
     if (!date) return res.status(400).json({ msg: "Date required" });
+
+    console.log("===== /bookings/slots =====");
+    console.log("[/slots] query.date =", date);
 
     if (req.user.role === "student" && req.user.status !== "approved") {
       return res.status(403).json({ msg: "Account not approved" });
@@ -203,6 +254,13 @@ router.get("/slots", auth, async (req, res) => {
     const slots = [];
     const startUTC = new Date(dayStartUTC.getTime() + 9 * 3600000);
     const endUTC = new Date(dayStartUTC.getTime() + 24 * 3600000);
+
+    console.log(
+      "[/slots] windows from",
+      startUTC.toISOString(),
+      "to",
+      endUTC.toISOString()
+    );
 
     let curUTC = startUTC;
 
@@ -220,6 +278,8 @@ router.get("/slots", auth, async (req, res) => {
       curUTC = next;
     }
 
+    console.log("[/slots] total slot windows generated:", slots.length);
+
     const { start: rangeStart, end: rangeEnd } = dayStartEndIST(date);
 
     const bookings = await Booking.find({
@@ -228,6 +288,8 @@ router.get("/slots", auth, async (req, res) => {
     })
       .populate("student", "name course")
       .lean();
+
+    console.log("[/slots] bookings overlapping day:", bookings.length);
 
     for (const slot of slots) {
       const wsUTC = istStringToUTC(slot.slotStart);
@@ -257,10 +319,10 @@ router.get("/slots", auth, async (req, res) => {
 
     res.json(slots);
   } catch (err) {
+    console.error("[GET /bookings/slots] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 /* ---------------------------------------------------------
    POST /bookings — Create booking
@@ -269,14 +331,24 @@ router.post("/", auth, async (req, res) => {
   try {
     const { slotStart, slotEnd, company, round, technology } = req.body;
 
+    console.log("===== POST /bookings =====");
+    console.log("[POST] raw body:", req.body);
+
     if (!slotStart || !slotEnd || !company || !round || !technology)
       return res.status(400).json({ msg: "Missing fields" });
 
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
 
+    console.log("[POST] interpreted UTC:", {
+      slotStartUTC: s.toISOString(),
+      slotEndUTC: e.toISOString(),
+    });
+
     const nowIST = new Date(Date.now() + IST_OFFSET);
     const sIST = new Date(s.getTime() + IST_OFFSET);
+    console.log("[POST] nowIST:", nowIST.toISOString(), "sIST:", sIST.toISOString());
+
     if (sIST < nowIST) {
       return res.status(400).json({ msg: "Cannot book past slots." });
     }
@@ -297,6 +369,8 @@ router.post("/", auth, async (req, res) => {
       student: req.user._id,
       slotStart: { $gte: start, $lt: end },
     });
+
+    console.log("[POST] todaysCount:", todaysCount);
 
     if (todaysCount >= 5)
       return res.status(400).json({ msg: "Daily limit 5 reached" });
@@ -335,18 +409,22 @@ router.post("/", auth, async (req, res) => {
       technology,
     });
 
+    console.log("[POST] booking saved with _id:", booking._id.toString());
+
     res.status(201).json(booking);
   } catch (err) {
+    console.error("[POST /bookings] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 /* ---------------------------------------------------------
    PUT /bookings/:id — Edit booking
 --------------------------------------------------------- */
 router.put("/:id", auth, async (req, res) => {
   try {
+    console.log("===== PUT /bookings/:id =====", req.params.id);
+
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ msg: "Not found" });
 
@@ -355,11 +433,20 @@ router.put("/:id", auth, async (req, res) => {
 
     const { slotStart, slotEnd, company, round, technology } = req.body;
 
+    console.log("[PUT] raw body:", req.body);
+
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
 
+    console.log("[PUT] interpreted UTC:", {
+      slotStartUTC: s.toISOString(),
+      slotEndUTC: e.toISOString(),
+    });
+
     const nowIST = new Date(Date.now() + IST_OFFSET);
     const sIST = new Date(s.getTime() + IST_OFFSET);
+
+    console.log("[PUT] nowIST:", nowIST.toISOString(), "sIST:", sIST.toISOString());
 
     if (sIST < nowIST)
       return res.status(400).json({ msg: "Cannot edit past slots." });
@@ -373,10 +460,10 @@ router.put("/:id", auth, async (req, res) => {
     await booking.save();
     res.json(booking);
   } catch (err) {
+    console.error("[PUT /bookings/:id] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 /* ---------------------------------------------------------
    DELETE /bookings/:id/student
@@ -392,10 +479,10 @@ router.delete("/:id/student", auth, async (req, res) => {
     await Booking.findByIdAndDelete(req.params.id);
     res.json({ msg: "Booking removed" });
   } catch (err) {
+    console.error("[DELETE /bookings/:id/student] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 /* ---------------------------------------------------------
    DELETE /bookings/:id — Admin delete
@@ -408,9 +495,9 @@ router.delete("/:id", auth, async (req, res) => {
     await Booking.findByIdAndDelete(req.params.id);
     res.json({ msg: "Deleted" });
   } catch (err) {
+    console.error("[DELETE /bookings/:id] error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 });
-
 
 export default router;

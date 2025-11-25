@@ -26,8 +26,8 @@ export default function FullDayView() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user?.role === "admin";
 
-  const today = new Date();
-  const defaultDate = today.toISOString().split("T")[0];
+  const todayLocal = new Date();
+  const defaultDate = todayLocal.toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(defaultDate);
 
   useEffect(() => {
@@ -37,7 +37,20 @@ export default function FullDayView() {
   async function loadSlots(date) {
     try {
       setLoading(true);
+      console.log("=== FullDayView.loadSlots ===");
+      console.log("Selected date:", date);
+
       const res = await API.get(`/bookings/slots?date=${date}`);
+
+      console.log("Raw response from /bookings/slots:", res.data);
+      if (res.data[0]) {
+        console.log(
+          "First slot raw:",
+          "slotStart:", res.data[0].slotStart,
+          "slotEnd:", res.data[0].slotEnd
+        );
+      }
+
       setSlots(res.data);
     } catch (err) {
       console.error("Slots load failed:", err);
@@ -62,12 +75,15 @@ export default function FullDayView() {
     <div className="pb-14">
       <h2 className="text-3xl mb-4 text-cyan-400">Interview Slots</h2>
 
-      <div className="mb-4">
-        <label className="text-sm text-slate-300 block mb-1">Select Date</label>
+      <div className="mb-4 flex items-center gap-2">
+        <label className="text-sm text-slate-300 block">Select Date</label>
         <input
           type="date"
           value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
+          onChange={(e) => {
+            console.log("FullDayView date changed to:", e.target.value);
+            setSelectedDate(e.target.value);
+          }}
           className="p-2 rounded bg-slate-800 border border-slate-600 text-white"
         />
       </div>
@@ -122,36 +138,45 @@ export default function FullDayView() {
                       Booked Students:
                     </div>
 
-                    {s.bookings.map((b) => (
-                      <div
-                        key={b._id}
-                        className="py-2 border-b border-slate-600"
-                      >
-                        <div className="font-semibold text-white">
-                          {b.student?.name}
-                        </div>
+                    {s.bookings.map((b, idx) => {
+                      if (idx === 0) {
+                        console.log(
+                          "FullDayView expanded booking example:",
+                          b
+                        );
+                      }
 
-                        <div className="text-xs text-slate-400 mt-1">
-                          Company Type:{" "}
-                          <span className="text-white">{b.company}</span>
-                          <br />
-                          Round:{" "}
-                          <span className="text-white">{b.round}</span>
-                          <br />
-                          Technology:{" "}
-                          <span className="text-white">{b.technology}</span>
-                          <br />
-                          Duration:{" "}
-                          <span className="text-white">
-                            {b.duration === 60
-                              ? "1 hour"
-                              : b.duration === 30
-                              ? "30 minutes"
-                              : b.duration + " minutes"}
-                          </span>
+                      return (
+                        <div
+                          key={b._id}
+                          className="py-2 border-b border-slate-600"
+                        >
+                          <div className="font-semibold text-white">
+                            {b.student?.name}
+                          </div>
+
+                          <div className="text-xs text-slate-400 mt-1">
+                            Company Type:{" "}
+                            <span className="text-white">{b.company}</span>
+                            <br />
+                            Round:{" "}
+                            <span className="text-white">{b.round}</span>
+                            <br />
+                            Technology:{" "}
+                            <span className="text-white">{b.technology}</span>
+                            <br />
+                            Duration:{" "}
+                            <span className="text-white">
+                              {b.duration === 60
+                                ? "1 hour"
+                                : b.duration === 30
+                                ? "30 minutes"
+                                : b.duration + " minutes"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
