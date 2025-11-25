@@ -34,3 +34,16 @@
 .hide-scrollbar::-webkit-scrollbar {
   display: none;              /* Chrome, Safari */
 }
+
+
+/* Make <input type="date"> calendar icon white */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* Firefox workaround */
+input[type="date"]::-moz-focus-inner {
+  filter: invert(1) brightness(2);
+}

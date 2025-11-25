@@ -26,20 +26,43 @@ function withinSeconds(dateA, secs) {
 router.post('/signup', async (req, res) => {
   const { name, email, phone, course, password } = req.body;
 
+  // ❌ Block admin creation from signup
   if (email === process.env.ADMIN_EMAIL) {
     return res.status(403).json({ msg: "Admin cannot be created from signup." });
   }
 
+  // ----------------------------
+  // ✅ SIGNUP VALIDATION RULES
+  // ----------------------------
+  const nameRegex = /^[A-Za-z ]+$/;
+  const phoneRegex = /^[0-9]{10}$/;
+  const courseRegex = /^[A-Za-z ]+$/;
+
+  if (!nameRegex.test(name)) {
+    return res.status(400).json({ msg: "Full name can contain only letters" });
+  }
+
+  if (!phoneRegex.test(phone)) {
+    return res.status(400).json({ msg: "Phone must be 10 digits" });
+  }
+
+  if (!courseRegex.test(course)) {
+    return res.status(400).json({ msg: "Course must contain only letters" });
+  }
+
+  // Email validation
   const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ msg: "Only Gmail accounts are allowed." });
   }
 
+  // Check if user exists
   const exists = await User.findOne({ email });
   if (exists) {
     return res.status(400).json({ msg: "Email already exists" });
   }
 
+  // Hash password and save user
   const hashed = await bcrypt.hash(password, 10);
 
   const user = await User.create({
@@ -54,9 +77,8 @@ router.post('/signup', async (req, res) => {
 
   // Generate OTP
   const otp = generateOTP();
-
   user.otp = otp;
-  user.otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+  user.otpExpires = new Date(Date.now() + 5 * 60 * 1000);
   await user.save();
 
   await sendOTPEmail(email, user.name, otp);
@@ -67,6 +89,7 @@ router.post('/signup', async (req, res) => {
     msg: "OTP sent to email"
   });
 });
+
 
 
 
@@ -154,14 +177,22 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 // LOGIN (unchanged) — only allow if emailVerified === true
+// LOGIN – return clear message for wrong email or password
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ msg: "Invalid credentials" });
 
+  // EMAIL NOT FOUND
+  if (!user) {
+    return res.status(400).json({ msg: "Email not found" });
+  }
+
+  // PASSWORD WRONG
   const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(400).json({ msg: "Invalid credentials" });
+  if (!match) {
+    return res.status(400).json({ msg: "Incorrect password" });
+  }
 
   // STUDENT MUST VERIFY EMAIL
   if (user.role === "student" && !user.emailVerified) {
@@ -170,11 +201,10 @@ router.post('/login', async (req, res) => {
     });
   }
 
-  // ADMIN CAN LOGIN WITHOUT OTP
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-
   res.json({ token, user });
 });
+
 
 
 // GET /me (unchanged)

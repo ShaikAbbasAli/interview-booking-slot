@@ -2,27 +2,62 @@ import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format } from "date-fns";
 
-/* IST Today */
+/* ---------------------------- Helpers ---------------------------- */
 function todayIST() {
   const now = new Date();
   const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
   return ist.toISOString().split("T")[0];
 }
 
-/* Safe Local Parser */
-function parseLocal(dtString) {
-  if (!dtString || !dtString.includes("T")) return new Date();
-  const [d, t] = dtString.split("T");
+function parseLocal(dt) {
+  if (!dt || !dt.includes("T")) return new Date();
+  const [d, t] = dt.split("T");
   const [y, m, dd] = d.split("-").map(Number);
   const [hh, mm] = t.split(":").map(Number);
   return new Date(y, m - 1, dd, hh, mm);
 }
 
+/* ---------------------------- Modal ---------------------------- */
+function NeonModal({ show, message, onConfirm }) {
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 animate-fadeIn">
+      <div className="bg-slate-900 border border-cyan-400/40 rounded-2xl p-6 w-80 text-center shadow-[0_0_25px_rgba(0,255,255,0.7)] animate-scaleIn">
+        <div className="text-cyan-300 text-xl font-bold mb-3">
+          ⚠️ Confirmation
+        </div>
+
+        <div className="text-slate-200 mb-6">{message}</div>
+
+        <div className="flex justify-center gap-3">
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-500 shadow-[0_0_12px_rgba(255,0,0,0.5)]"
+          >
+            Yes
+          </button>
+
+          <button
+            onClick={() => onConfirm(null)}
+            className="px-4 py-2 bg-slate-600 text-white rounded-xl hover:bg-slate-500"
+          >
+            No
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------- Main ---------------------------- */
 export default function MyBookings() {
   const [allBookings, setAllBookings] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [selectedDate, setSelectedDate] = useState(todayIST());
   const [loading, setLoading] = useState(true);
+
+  const [modal, setModal] = useState({ show: false, bookingId: null });
 
   async function loadBookings() {
     try {
@@ -44,7 +79,7 @@ export default function MyBookings() {
     loadBookings();
   }, []);
 
-  // Filter by Selected Date
+  // Filter by date
   useEffect(() => {
     const list = allBookings.filter((b) =>
       b.slotStart.startsWith(selectedDate)
@@ -52,116 +87,137 @@ export default function MyBookings() {
     setFiltered(list);
   }, [selectedDate, allBookings]);
 
-  async function deleteBooking(id) {
-    if (!window.confirm("Cancel this booking?")) return;
+  // Confirm delete
+  async function confirmDelete(id) {
+    if (!id) {
+      setModal({ show: false, bookingId: null });
+      return;
+    }
+
     await API.delete(`/bookings/${id}/student`);
+    setModal({ show: false, bookingId: null });
     loadBookings();
   }
 
   const now = new Date();
-  const today = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  );
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   return (
-    <div className="p-6">
-      <h2 className="text-3xl mb-4 text-cyan-400 font-bold">My Bookings</h2>
+    <>
+      <NeonModal
+        show={modal.show}
+        message="Are you sure you want to cancel this booking?"
+        onConfirm={confirmDelete}
+      />
 
-      {/* DATE PICKER */}
-      <div className="mb-4">
-        <label className="text-sm text-slate-300 block mb-1">Select Date</label>
+      <div className="p-6">
+        <h2 className="text-3xl mb-4 text-cyan-400 font-bold">My Bookings</h2>
 
-        <div className="relative w-60">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white pr-10"
-          />
+        {/* DATE PICKER */}
+        <div className="mb-4">
+          <label className="text-sm text-slate-300 block mb-1 font-bold">Select Date</label>
 
-          {/* 🔥 glowing calendar icon */}
-          <span className="
-            absolute right-3 top-1/2 -translate-y-1/2 
-            text-2xl text-cyan-400 
-            drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]
-            pointer-events-none
-          ">
-            📅
-          </span>
+          <div className="relative w-60">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-full p-2 mb-3 rounded bg-slate-700"
+            />
+          </div>
         </div>
+
+        {/* BOOKINGS LIST */}
+        {loading ? (
+          <div className="p-4 bg-slate-700 rounded">Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-4 bg-slate-700 rounded">
+            No bookings for the selected date.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filtered.map((b) => {
+              const start = parseLocal(b.slotStart);
+              const end = parseLocal(b.slotEnd);
+
+              const bookingDate = new Date(
+                start.getFullYear(),
+                start.getMonth(),
+                start.getDate()
+              );
+
+              const isPast = bookingDate < today;
+
+              return (
+                <div
+                  key={b._id}
+                  className="p-4 bg-slate-800 rounded-xl border border-slate-600 shadow-lg"
+                >
+                  <div className="text-lg text-cyan-300 font-semibold">
+                    {format(start, "dd MMM yyyy")}
+                  </div>
+
+                  <div className="mt-1">
+                    <b>Time:</b> {format(start, "hh:mm a")} –{" "}
+                    {format(end, "hh:mm a")}
+                  </div>
+
+                  <div className="mt-1">
+                    <b>Company:</b> {b.company}
+                  </div>
+
+                  <div className="mt-1">
+                    <b>Round:</b> {b.round}
+                  </div>
+
+                  <div className="mt-1">
+                    <b>Technology:</b> {b.technology}
+                  </div>
+
+                  <div className="flex gap-3 mt-3">
+                    {!isPast ? (
+                      <>
+                        <button
+                          onClick={() =>
+                            (window.location.href = `/edit-booking/${b._id}`)
+                          }
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded shadow-[0_0_8px_rgba(0,150,255,0.5)] cursor-pointer"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            setModal({ show: true, bookingId: b._id })
+                          }
+                          className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded shadow-[0_0_10px_rgba(255,0,0,0.5)] cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <div className="px-3 py-1 bg-slate-700 rounded text-slate-400">
+                        Past Booking
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* LIST */}
-      {loading ? (
-        <div className="p-4 bg-slate-700 rounded">Loading…</div>
-      ) : filtered.length === 0 ? (
-        <div className="p-4 bg-slate-700 rounded">
-          No bookings found for selected date.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((b) => {
-            const start = parseLocal(b.slotStart);
-            const end = parseLocal(b.slotEnd);
+      {/* Animations */}
+      <style>
+        {`
+        @keyframes fadeIn { 0%{opacity:0} 100%{opacity:1} }
+        @keyframes scaleIn { 0%{transform:scale(.7);opacity:0;} 100%{transform:scale(1);opacity:1;} }
 
-            const bookingDate = new Date(
-              start.getFullYear(),
-              start.getMonth(),
-              start.getDate()
-            );
-
-            const isPast = bookingDate < today;
-
-            return (
-              <div
-                key={b._id}
-                className="p-4 bg-slate-800 rounded-xl border border-slate-600"
-              >
-                <div className="text-lg text-cyan-300 font-semibold">
-                  {format(start, "dd MMM yyyy")}
-                </div>
-
-                <div className="mt-1">
-                  <b>Time:</b> {format(start, "hh:mm a")} –{" "}
-                  {format(end, "hh:mm a")}
-                </div>
-
-                <div className="mt-1"><b>Company:</b> {b.company}</div>
-                <div className="mt-1"><b>Round:</b> {b.round}</div>
-                <div className="mt-1"><b>Technology:</b> {b.technology}</div>
-
-                <div className="flex gap-3 mt-3">
-                  {!isPast ? (
-                    <>
-                      <button
-                        onClick={() =>
-                          (window.location.href = `/edit-booking/${b._id}`)
-                        }
-                        className="px-3 py-1 bg-blue-600 rounded"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => deleteBooking(b._id)}
-                        className="px-3 py-1 bg-red-600 rounded"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <div className="px-3 py-1 bg-slate-700 rounded text-slate-400">
-                      Past Booking
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+        .animate-fadeIn { animation: fadeIn .25s ease-out }
+        .animate-scaleIn { animation: scaleIn .25s ease-out }
+      `}
+      </style>
+    </>
   );
 }

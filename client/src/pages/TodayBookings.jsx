@@ -61,6 +61,61 @@ export default function TodayBookings() {
   const startIndex = (page - 1) * pageSize;
   const visibleRows = filteredRows.slice(startIndex, startIndex + pageSize);
 
+  /* ------------------------------
+        CSV EXPORT FUNCTION
+  ------------------------------ */
+  function downloadCSV() {
+    if (filteredRows.length === 0) {
+      alert("No data to download!");
+      return;
+    }
+
+    const header = [
+      "S.No",
+      "Student",
+      "Start Time",
+      "End Time",
+      "Duration",
+      "Round",
+      "Company",
+      "Technology",
+      "Booked Time",
+    ];
+
+    const csvRows = filteredRows.map((r, index) => {
+      const s = parseLocal(r.slotStart);
+      const e = parseLocal(r.slotEnd);
+      const created = parseLocal(r.createdAt);
+
+      return [
+        index + 1,
+        r.studentName,
+        format(s, "hh:mm a"),
+        format(e, "hh:mm a"),
+        r.duration,
+        r.round,
+        r.company,
+        r.technology,
+        format(created, "dd MMM yyyy, hh:mm a"),
+      ].join(",");
+    });
+
+    const csv = [header.join(","), ...csvRows].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+
+    link.download = `bookings-${selectedDate}.csv`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  /* ------------------------------ */
+
   return (
     <div className="p-6">
 
@@ -73,28 +128,17 @@ export default function TodayBookings() {
 
         <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
 
-          {/* ⭐ Calendar With Highlight & Icon */}
-          <div className="relative flex items-center w-full md:w-auto">
-            <input
-              id="datePicker"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => {
-                setSelectedDate(e.target.value);
-                setPage(1);
-              }}
-              className="px-4 py-2 w-full md:w-auto bg-slate-900 border border-slate-700 rounded-lg text-white pr-12 cursor-pointer"
-            />
-
-            {/* Clickable Calendar Icon */}
-            <button
-              type="button"
-              onClick={() => document.getElementById("datePicker").showPicker()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 text-2xl hover:text-cyan-300 transition drop-shadow-[0_0_6px_#22d3ee]"
-            >
-              📅
-            </button>
-          </div>
+          {/* Date Selector */}
+          <input
+            id="datePicker"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setPage(1);
+            }}
+            className="w-full p-2 rounded bg-slate-700"
+          />
 
           {/* Search Box */}
           <input
@@ -107,6 +151,14 @@ export default function TodayBookings() {
             }}
             className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white w-full md:w-60"
           />
+
+          {/* ⭐ CSV BUTTON */}
+          <button
+            onClick={downloadCSV}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white font-semibold shadow-[0_0_10px_rgba(0,255,255,0.6)]"
+          >
+            Download CSV
+          </button>
         </div>
       </div>
 

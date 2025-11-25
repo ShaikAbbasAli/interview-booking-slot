@@ -227,7 +227,7 @@ export default function EditBooking() {
       <div className="max-w-md mx-auto bg-slate-800 p-6 rounded-xl border border-slate-600 shadow-xl">
         <button
           onClick={() => navigate("/mybookings")}
-          className="mb-4 px-3 py-1 bg-slate-700 rounded"
+          className="mb-4 px-3 py-1 bg-slate-700 rounded font-bold cursor-pointer"
         >
           ← Back
         </button>
@@ -335,14 +335,14 @@ export default function EditBooking() {
 
           {/* Buttons */}
           <div className="flex gap-3">
-            <button className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded">
+            <button className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded cursor-pointer">
               Save
             </button>
 
             <button
               type="button"
               onClick={remove}
-              className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded"
+              className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded cursor-pointer"
             >
               Delete
             </button>

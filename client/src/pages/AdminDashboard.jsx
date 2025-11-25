@@ -131,7 +131,7 @@ export default function AdminStudents() {
                     {s.status === "pending" && (
                       <button
                         onClick={() => approveStudent(s._id)}
-                        className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded"
+                        className="px-3 py-1 bg-green-600 hover:bg-green-500 rounded cursor-pointer"
                       >
                         Approve
                       </button>
@@ -139,7 +139,7 @@ export default function AdminStudents() {
 
                     <button
                       onClick={() => deleteStudent(s._id)}
-                      className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded"
+                      className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded cursor-pointer"
                     >
                       Remove
                     </button>

@@ -69,11 +69,8 @@ export default function FullDayView() {
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white pr-10"
+            className="w-full p-2 mb-3 rounded bg-slate-700"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl text-cyan-400 drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]">
-            📅
-          </span>
         </div>
       </div>
 
@@ -168,7 +165,7 @@ export default function FullDayView() {
                 {/* STUDENT BUTTONS */}
                 {!isAdmin && !isPastSlot && !isFull && (
                   <button
-                    className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
+                    className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500 cursor-pointer"
                     onClick={() => book(s.slotStart)}
                   >
                     Book Slot

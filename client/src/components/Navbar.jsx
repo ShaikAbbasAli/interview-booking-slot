@@ -120,7 +120,7 @@ export default function Navbar() {
                 px-4 py-2 rounded-xl bg-red-600
                 text-white font-semibold shadow-lg
                 shadow-red-700/40 hover:bg-red-500 
-                transition-all duration-200 hover:scale-105 active:scale-95
+                transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer
               "
             >
               Logout

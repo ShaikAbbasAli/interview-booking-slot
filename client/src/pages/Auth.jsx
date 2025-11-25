@@ -1,4 +1,3 @@
-// client/src/pages/Auth.jsx
 import React, { useState } from "react";
 import API from "../services/api";
 import { useNavigate } from "react-router-dom";
@@ -14,8 +13,7 @@ function FloatingInput({
   showTogglePassword = false,
 }) {
   const [showPassword, setShowPassword] = useState(false);
-  const finalType =
-    type === "password" ? (showPassword ? "text" : "password") : type;
+  const finalType = type === "password" ? (showPassword ? "text" : "password") : type;
 
   return (
     <div className="relative">
@@ -28,19 +26,17 @@ function FloatingInput({
         required={required}
         autoComplete={autoComplete}
         placeholder={label}
-        className={
-          "peer w-full rounded-xl bg-slate-700 px-4 pt-6 pb-2 text-white placeholder-transparent " +
-          "focus:outline-none focus:ring-2 focus:ring-cyan-400 transition"
-        }
+        className="peer w-full rounded-xl bg-slate-700 px-4 pt-6 pb-2
+                   text-white placeholder-transparent focus:outline-none
+                   focus:ring-2 focus:ring-cyan-400 transition"
       />
 
       <label
         htmlFor={id}
-        className={
-          "absolute left-4 top-3 text-slate-300 text-sm transition-all " +
-          "peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-placeholder-shown:text-slate-400 " +
-          "peer-focus:top-2 peer-focus:text-xs peer-focus:text-cyan-300"
-        }
+        className="absolute left-4 top-3 text-slate-300 text-sm transition-all
+                   peer-placeholder-shown:top-4 peer-placeholder-shown:text-base
+                   peer-placeholder-shown:text-slate-400 peer-focus:top-2 
+                   peer-focus:text-xs peer-focus:text-cyan-300"
       >
         {label}
       </label>
@@ -49,7 +45,8 @@ function FloatingInput({
         <button
           type="button"
           onClick={() => setShowPassword((s) => !s)}
-          className="absolute right-3 top-3 text-xs bg-slate-600/50 px-2 py-1 rounded text-slate-200 hover:bg-slate-600"
+          className="absolute right-3 top-3 text-xs bg-slate-600/50 px-2 py-1
+                     rounded text-slate-200 hover:bg-slate-600"
         >
           {showPassword ? "Hide" : "Show"}
         </button>
@@ -61,7 +58,7 @@ function FloatingInput({
 export default function Auth() {
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("login"); // login | signup
+  const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -77,92 +74,87 @@ export default function Auth() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const switchMode = (newMode) => {
+  const switchMode = (m) => {
     setError("");
-    setMode(newMode);
+    setMode(m);
   };
 
-  // -------------------------------------------------------
-  // UPDATED SUBMIT FUNCTION WITH OTP FLOW
-  // -------------------------------------------------------
-  const submit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
-
-  try {
-    if (mode === "login") {
-      const res = await API.post("/auth/login", {
-        email: form.email,
-        password: form.password,
-      });
-
-      // Admin → Direct login
-      // Student → Login only after OTP verification
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-
-      if (res.data.user.role === "admin") {
-        navigate("/admin/students");
-      } else {
-        navigate("/dashboard");
-      }
-
-      return;
+  const validateSignup = () => {
+    if (!/^[A-Za-z ]+$/.test(form.name)) {
+      setError("Full Name must contain only letters.");
+      return false;
     }
 
-    // SIGNUP → Only STUDENT + OTP PROCESS
-    if (form.email === import.meta.env.VITE_ADMIN_EMAIL) {
-  setError("Admin cannot be created from signup.");
-  setLoading(false);
-  return;
-}
+    if (!/^[0-9]{10}$/.test(form.phone)) {
+      setError("Phone must be 10 digits.");
+      return false;
+    }
 
+    if (!/^[A-Za-z ]+$/.test(form.course)) {
+      setError("Course must contain only letters.");
+      return false;
+    }
 
-    const res = await API.post("/auth/signup", form);
+    return true;
+  };
 
-    // Redirect to OTP Verification page
-    navigate(
-      `/verify-otp?userId=${res.data.userId}&email=${encodeURIComponent(
-        res.data.email
-      )}`
-    );
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  } catch (err) {
-    setError(err.response?.data?.msg || "Something went wrong");
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      if (mode === "login") {
+        const res = await API.post("/auth/login", {
+          email: form.email,
+          password: form.password,
+        });
 
+        localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+
+        navigate(res.data.user.role === "admin" ? "/admin/students" : "/dashboard");
+        return;
+      }
+
+      // SIGNUP VALIDATION
+      if (!validateSignup()) {
+        setLoading(false);
+        return;
+      }
+
+      const res = await API.post("/auth/signup", form);
+
+      navigate(`/verify-otp?userId=${res.data.userId}&email=${encodeURIComponent(res.data.email)}`);
+
+    } catch (err) {
+      setError(err.response?.data?.msg || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex items-start justify-center min-h-screen px-4 py-12">
       <div className="w-full max-w-2xl">
         <div className="bg-slate-900/60 rounded-2xl p-8 shadow-2xl border border-slate-700">
 
-          {/* Toggle Buttons */}
+          {/* Toggle */}
           <div className="flex mb-6">
             <button
               onClick={() => switchMode("login")}
-              className={
-                "flex-1 py-2 text-lg font-bold rounded-l-xl " +
-                (mode === "login"
-                  ? "bg-cyan-600 text-white"
-                  : "bg-slate-700 text-slate-300")
-              }
+              className={`flex-1 py-2 text-lg font-bold rounded-l-xl ${
+                mode === "login" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"
+              }`}
             >
               Login
             </button>
 
             <button
               onClick={() => switchMode("signup")}
-              className={
-                "flex-1 py-2 text-lg font-bold rounded-r-xl " +
-                (mode === "signup"
-                  ? "bg-cyan-600 text-white"
-                  : "bg-slate-700 text-slate-300")
-              }
+              className={`flex-1 py-2 text-lg font-bold rounded-r-xl ${
+                mode === "signup" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"
+              }`}
             >
               Signup
             </button>
@@ -180,7 +172,7 @@ export default function Auth() {
 
           <form onSubmit={submit} className="space-y-5">
 
-            {/* SIGNUP EXTRA FIELDS */}
+            {/* Signup Extra Fields */}
             {mode === "signup" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FloatingInput
@@ -195,17 +187,18 @@ export default function Auth() {
                   label="Phone"
                   value={form.phone}
                   onChange={(e) => update("phone", e.target.value)}
+                  required
                 />
                 <FloatingInput
                   id="course"
                   label="Course"
                   value={form.course}
                   onChange={(e) => update("course", e.target.value)}
+                  required
                 />
               </div>
             )}
 
-            {/* COMMON FIELDS */}
             <FloatingInput
               id="email"
               label="Email Address"
@@ -228,12 +221,13 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-4 w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition disabled:opacity-60"
+              className="mt-4 w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 
+                         text-white font-semibold transition disabled:opacity-60"
             >
               {loading
                 ? mode === "login"
                   ? "Logging in..."
-                  : "Sending OTP..."
+                  : "Verifying..."
                 : mode === "login"
                 ? "Login"
                 : "Sign Up"}
