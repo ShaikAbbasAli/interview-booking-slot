@@ -1,22 +1,15 @@
+// EditBooking.jsx (Updated with react-hot-toast UI popups)
+
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-
-/* ---------- HELPERS ---------- */
+import toast from "react-hot-toast"; // ⭐ NEW
 
 function pad(n) {
   return n.toString().padStart(2, "0");
 }
 
-// IST Today (min date)
-function todayIST() {
-  const now = new Date();
-  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
-  return ist.toISOString().split("T")[0];
-}
-
-// Convert Date → yyyy-MM-ddTHH:mm (pure local)
 function toPureISTString(date) {
   return (
     date.getFullYear() +
@@ -59,7 +52,6 @@ export default function EditBooking() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-
   const [date, setDate] = useState("");
   const [hour, setHour] = useState("09");
   const [minute, setMinute] = useState("00");
@@ -68,13 +60,10 @@ export default function EditBooking() {
   const [round, setRound] = useState("");
   const [technology, setTechnology] = useState("");
 
-  // Hours allowed 9 → 23
   const hours = Array.from({ length: 15 }, (_, i) => i + 9);
   const minutesArr = ["00", "30"];
 
-  /* ----------------------
-      LOAD BOOKING DATA
-  ------------------------- */
+  // -------------------- LOAD BOOKING --------------------
   useEffect(() => {
     async function load() {
       try {
@@ -82,7 +71,7 @@ export default function EditBooking() {
         const found = res.data.find((b) => b._id === id);
 
         if (!found) {
-          alert("Booking not found");
+          toast.error("Booking not found");
           navigate("/mybookings");
           return;
         }
@@ -94,78 +83,74 @@ export default function EditBooking() {
         setHour(pad(s.getHours()));
         setMinute(pad(s.getMinutes()));
         setDuration((e - s) / 60000);
-
         setCompany(found.company || "");
         setRound(found.round || "");
         setTechnology(found.technology || "");
-      } catch {
-        alert("Failed to load booking");
+      } catch (err) {
+        toast.error("Failed to load booking");
         navigate("/mybookings");
       } finally {
         setLoading(false);
       }
     }
-
     load();
   }, [id, navigate]);
 
-  /* ----------------------
-      SUBMIT UPDATED DATA
-  ------------------------- */
+  // -------------------- SUBMIT UPDATE --------------------
   async function submit(e) {
     e.preventDefault();
 
-    if (!company) return alert("Please select Company type.");
-    if (!round) return alert("Please select Round.");
-    if (!technology) return alert("Please select Technology.");
+    if (!company) return toast.error("Please select Company type");
+    if (!round) return toast.error("Please select Round");
+    if (!technology) return toast.error("Please select Technology");
 
     const [Y, M, D] = date.split("-").map(Number);
-
     const startIST = new Date(Y, M - 1, D, Number(hour), Number(minute));
     const endIST = new Date(startIST.getTime() + duration * 60000);
 
     const now = new Date();
 
-    // Past date validation
     const bookingDay = new Date(Y, M - 1, D);
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
-    if (bookingDay < today) {
-      alert("Cannot edit past dates.");
-      return;
+    if (bookingDay < todayDate) {
+      return toast.error("Cannot edit past dates");
     }
 
-    // Same-day past time check
-    if (bookingDay.getTime() === today.getTime() && startIST < now) {
-      alert("Cannot edit a slot already passed today.");
-      return;
+    if (bookingDay.getTime() === todayDate.getTime() && startIST < now) {
+      return toast.error("Cannot edit past time slots today");
     }
 
-    // Time alignment
     if (![0, 30].includes(startIST.getMinutes())) {
-      alert("Start time must be aligned to :00 or :30.");
-      return;
+      return toast.error("Start time must be at :00 or :30");
     }
 
-    // Midnight handling (end cannot exceed 24:00)
     if (
       endIST.getDate() !== startIST.getDate() &&
       (endIST.getHours() !== 0 || endIST.getMinutes() !== 0)
     ) {
-      alert("End time cannot exceed 12:00 AM (midnight).");
-      return;
+      return toast.error("End time cannot exceed 12:00 AM midnight");
     }
 
-    // Build end date string (may be next day)
-    let endDateStr = date;
+    // Handle next-day midnight
+    let endDateString = date;
     if (endIST.getDate() !== startIST.getDate()) {
-      const nextDay = new Date(Y, M - 1, D + 1);
-      endDateStr = format(nextDay, "yyyy-MM-dd");
+      const next = new Date(Y, M - 1, D + 1);
+      endDateString =
+        next.getFullYear() +
+        "-" +
+        pad(next.getMonth() + 1) +
+        "-" +
+        pad(next.getDate());
     }
 
     const payload = {
       slotStart: toPureISTString(startIST),
-      slotEnd: `${endDateStr}T${pad(endIST.getHours())}:${pad(
+      slotEnd: `${endDateString}T${pad(endIST.getHours())}:${pad(
         endIST.getMinutes()
       )}`,
       company,
@@ -175,27 +160,29 @@ export default function EditBooking() {
 
     try {
       await API.put(`/bookings/${id}`, payload);
-      alert("Booking updated successfully");
+      toast.success("Booking updated!");
       navigate("/mybookings");
     } catch (err) {
-      alert(err.response?.data?.msg || "Update failed");
+      toast.error(err.response?.data?.msg || "Update failed");
     }
   }
 
-  /* ----------------------
-          DELETE
-  ------------------------- */
+  // -------------------- DELETE BOOKING --------------------
   async function remove() {
-    if (!window.confirm("Delete this booking?")) return;
-    await API.delete(`/bookings/${id}/student`);
-    navigate("/mybookings");
+    try {
+      await API.delete(`/bookings/${id}/student`);
+      toast.success("Booking deleted");
+      navigate("/mybookings");
+    } catch {
+      toast.error("Failed to delete booking");
+    }
   }
 
-  if (loading) return <div>Loading…</div>;
+  if (loading) return <div className="text-slate-300">Loading…</div>;
 
+  // -------------------- UI --------------------
   return (
-    <div className="max-w-md mx-auto bg-slate-800 p-6 rounded-xl border border-slate-600">
-
+    <div className="max-w-md mx-auto bg-slate-800 p-6 rounded-xl shadow-lg">
       <button
         onClick={() => navigate("/mybookings")}
         className="mb-4 px-3 py-1 bg-slate-700 rounded hover:bg-slate-600"
@@ -206,24 +193,22 @@ export default function EditBooking() {
       <h2 className="text-xl mb-4 text-cyan-400 font-bold">Edit Booking</h2>
 
       <form onSubmit={submit}>
-
-        {/* DATE PICKER WITH BRIGHT ICON */}
-        <label className="text-sm text-slate-300">Date</label>
-
-        <div className="relative w-full mb-3">
+        {/* DATE + ICON */}
+        <label className="text-slate-300">Date</label>
+        <div className="relative">
           <input
             type="date"
-            min={todayIST()}   // 🔥 DISABLE past days
+            min={format(new Date(), "yyyy-MM-dd")} // disable past dates
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full p-2 pr-10 rounded bg-slate-700 text-white border border-slate-600"
+            className="w-full p-2 mb-3 rounded bg-slate-700 text-white pr-10"
           />
 
+          {/* bright calendar icon */}
           <span
             className="
-              absolute right-3 top-1/2 -translate-y-1/2
-              text-2xl text-cyan-400 
-              drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]
+              absolute right-3 top-1/2 -translate-y-1/2 text-2xl
+              text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.9)]
               pointer-events-none
             "
           >
@@ -231,7 +216,7 @@ export default function EditBooking() {
           </span>
         </div>
 
-        {/* TIME ROW */}
+        {/* TIME FIELDS */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1">
             <label>Hour</label>
@@ -276,7 +261,7 @@ export default function EditBooking() {
           </div>
         </div>
 
-        {/* Company */}
+        {/* DROPDOWNS */}
         <label>Company Type</label>
         <select
           value={company}
@@ -285,13 +270,10 @@ export default function EditBooking() {
         >
           <option value="">-- Select Company Type --</option>
           {COMPANY_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
+            <option key={c}>{c}</option>
           ))}
         </select>
 
-        {/* Round */}
         <label>Round</label>
         <select
           value={round}
@@ -300,13 +282,10 @@ export default function EditBooking() {
         >
           <option value="">-- Select Round --</option>
           {ROUND_OPTIONS.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
+            <option key={r}>{r}</option>
           ))}
         </select>
 
-        {/* Technology */}
         <label>Technology</label>
         <select
           value={technology}
@@ -315,20 +294,20 @@ export default function EditBooking() {
         >
           <option value="">-- Select Technology --</option>
           {TECH_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
+            <option key={t}>{t}</option>
           ))}
         </select>
 
-        {/* ACTION BUTTONS */}
+        {/* BUTTONS */}
         <div className="flex gap-3">
-          <button className="px-3 py-1 bg-blue-600 rounded">Save</button>
+          <button className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-500">
+            Save
+          </button>
 
           <button
             type="button"
             onClick={remove}
-            className="px-3 py-1 bg-red-600 rounded"
+            className="px-4 py-2 bg-red-600 rounded hover:bg-red-500"
           >
             Delete
           </button>
