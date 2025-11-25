@@ -59,12 +59,8 @@ export default function FullDayView() {
 
   return (
     <div className="pb-14">
-      {/* PAGE TITLE */}
-      <h2 className="text-3xl mb-4 font-bold text-cyan-400">
-        Interview Slots
-      </h2>
+      <h2 className="text-3xl mb-4 font-bold text-cyan-400">Interview Slots</h2>
 
-      {/* DATE PICKER WITH CALENDAR ICON */}
       <div className="mb-4">
         <label className="text-sm text-slate-300 block mb-1">Select Date</label>
 
@@ -75,21 +71,15 @@ export default function FullDayView() {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white pr-10"
           />
-
-          {/* HIGHLY VISIBLE CALENDAR ICON */}
           <span className="
-            absolute right-3 top-1/2 -translate-y-1/2 
-            text-2xl 
-            text-cyan-400 
-            drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]
-            pointer-events-none
+            absolute right-3 top-1/2 -translate-y-1/2 text-2xl 
+            text-cyan-400 drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]
           ">
             📅
           </span>
         </div>
       </div>
 
-      {/* LOADING */}
       {loading ? (
         <div className="p-4 bg-slate-700 rounded">Loading...</div>
       ) : (
@@ -99,21 +89,29 @@ export default function FullDayView() {
             const end = parseLocal(s.slotEnd);
 
             const isExpanded = expanded === s.slotStart;
-
             const now = new Date();
             const isPastSlot = start < now;
             const isFull = s.bookingsCount >= 6;
 
+            const disabledCard =
+              isAdmin && isPastSlot
+                ? "opacity-40 grayscale pointer-events-none"
+                : "";
+
             return (
               <div
                 key={s.slotStart}
-                className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${colorForCount(
-                  s.bookingsCount
-                )} ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
+                className={`p-4 rounded-xl shadow-xl transition-all duration-300 
+                  ${colorForCount(s.bookingsCount)} 
+                  ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}
+                  ${disabledCard}
+                `}
               >
                 {/* HEADER */}
                 <div
-                  className="cursor-pointer select-none"
+                  className={`cursor-pointer select-none ${
+                    isAdmin && isPastSlot ? "pointer-events-none" : ""
+                  }`}
                   onClick={() =>
                     setExpanded((prev) =>
                       prev === s.slotStart ? null : s.slotStart
@@ -128,13 +126,15 @@ export default function FullDayView() {
                     Booked: {s.bookingsCount} / 6
                   </div>
 
-                  <div className="text-xs text-slate-200 mt-1">
-                    {isExpanded ? "Click to collapse" : "Click to view details"}
-                  </div>
+                  {isAdmin && isPastSlot && (
+                    <div className="text-xs mt-1 text-red-300 font-semibold">
+                      Past Slot (Admin View)
+                    </div>
+                  )}
                 </div>
 
-                {/* EXPANDED BOOKING DETAILS */}
-                {isExpanded && s.bookingsCount > 0 && (
+                {/* Expanded details */}
+                {isExpanded && s.bookingsCount > 0 && !isPastSlot && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
                       Booked Students:
@@ -147,11 +147,9 @@ export default function FullDayView() {
                         </div>
 
                         <div className="text-xs text-slate-400 mt-1">
-                          Company:{" "}
-                          <span className="text-white">{b.company}</span>
+                          Company: <span className="text-white">{b.company}</span>
                           <br />
-                          Round:{" "}
-                          <span className="text-white">{b.round}</span>
+                          Round: <span className="text-white">{b.round}</span>
                           <br />
                           Technology:{" "}
                           <span className="text-white">{b.technology}</span>
@@ -170,7 +168,7 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* STUDENT BUTTONS */}
+                {/* Student Buttons */}
                 {!isAdmin && !isPastSlot && !isFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -186,14 +184,14 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {!isAdmin && isPastSlot && !isFull && (
+                {!isAdmin && isPastSlot && (
                   <div className="mt-3 px-3 py-1 bg-slate-700 rounded text-center text-slate-400">
                     Past Slot
                   </div>
                 )}
 
-                {/* ADMIN LABEL */}
-                {isAdmin && (
+                {/* ADMIN Footer */}
+                {isAdmin && !isPastSlot && (
                   <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-slate-200">
                     {isFull ? "Slot Full" : "Seats Available"}
                   </div>
