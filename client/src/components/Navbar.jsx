@@ -19,11 +19,22 @@ export default function Navbar() {
 
   const [menuOpen, setMenuOpen] = useState(false);
 
+  /* ---------------------------------------------------------
+      FIXED LOGOUT — No freeze, no stalling, no re-render loop
+  --------------------------------------------------------- */
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const logout = () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+
     toast.success("Logged out successfully");
+
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    navigate("/auth", { replace: true });
+
+    // Hard redirect → Prevent ProtectedRoute from re-running
+    window.location.href = "/auth";
   };
 
   return (
@@ -155,6 +166,7 @@ export default function Navbar() {
             </>
           )}
 
+          {/* FIXED Logout for Mobile */}
           <button
             onClick={() => {
               setMenuOpen(false);
@@ -183,9 +195,10 @@ function NavItem({ to, label, active }) {
       className={`
         px-4 py-2 rounded-xl font-medium text-sm
         tracking-wide transition-all duration-200
-        ${active
-          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-[0_0_10px_rgba(0,255,255,0.35)]"
-          : "text-slate-300 hover:bg-cyan-400/10 hover:text-cyan-300"
+        ${
+          active
+            ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-[0_0_10px_rgba(0,255,255,0.35)]"
+            : "text-slate-300 hover:bg-cyan-400/10 hover:text-cyan-300"
         }
       `}
     >
