@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format, parse } from "date-fns";
+import { FiCalendar } from "react-icons/fi"; // 📌 Calendar Icon Added
 
 /* ------------------------------
    TRUE IST DATE
@@ -66,23 +67,23 @@ export default function TodayBookings() {
 
       {/* HEADER + FILTER ROW */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-
-        <h2 className="text-3xl font-bold text-cyan-400">
-          Slot Book Details
-        </h2>
+        <h2 className="text-3xl font-bold text-cyan-400">Slot Book Details</h2>
 
         <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
 
-          {/* Date Selector */}
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => {
-              setSelectedDate(e.target.value);
-              setPage(1);
-            }}
-            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white w-full md:w-auto"
-          />
+          {/* DATE PICKER with ICON */}
+          <div className="relative w-full md:w-56">
+            <FiCalendar className="absolute left-3 top-3 text-cyan-300 text-lg pointer-events-none" />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setPage(1);
+              }}
+              className="pl-10 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white w-full"
+            />
+          </div>
 
           {/* Search Box */}
           <input
@@ -114,10 +115,10 @@ export default function TodayBookings() {
             {filteredRows.length}
           </div>
 
-          {/* TABLE */}
+          {/* TABLE - NO SCROLLBAR */}
           <div className="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
+            <div className="w-full">
+              <table className="w-full text-sm table-fixed">
                 <thead className="bg-slate-900 text-cyan-300 border-b border-slate-700">
                   <tr>
                     {[
@@ -130,7 +131,12 @@ export default function TodayBookings() {
                       "Technology",
                       "Booked Time",
                     ].map((h) => (
-                      <th key={h} className="px-4 py-3 whitespace-nowrap">{h}</th>
+                      <th
+                        key={h}
+                        className="px-4 py-3 whitespace-nowrap text-left"
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -156,7 +162,7 @@ export default function TodayBookings() {
                           {r.studentName}
                         </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700 whitespace-nowrap">
+                        <td className="px-4 py-3 border-b border-slate-700">
                           <span className="text-cyan-300 font-semibold">
                             {format(s, "hh:mm a")}
                           </span>{" "}
