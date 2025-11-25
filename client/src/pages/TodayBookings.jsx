@@ -3,7 +3,7 @@ import API from "../services/api";
 import { format, parse } from "date-fns";
 
 /* ------------------------------
-   TRUE IST DATE (no UTC shift)
+   TRUE IST DATE
 ------------------------------ */
 function getTodayIST() {
   const now = new Date();
@@ -11,7 +11,7 @@ function getTodayIST() {
   return ist.toISOString().split("T")[0];
 }
 
-/* Safe parse yyyy-MM-ddTHH:mm */
+/* Parse yyyy-MM-ddTHH:mm safely */
 function parseLocal(dtString) {
   if (!dtString) return new Date();
   return parse(dtString, "yyyy-MM-dd'T'HH:mm", new Date());
@@ -21,6 +21,9 @@ export default function TodayBookings() {
   const [selectedDate, setSelectedDate] = useState(getTodayIST());
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Search
+  const [search, setSearch] = useState("");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -47,39 +50,71 @@ export default function TodayBookings() {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  const totalPages = Math.ceil(rows.length / pageSize);
+  /* ------------------------------
+        FILTER BY SEARCH
+  ------------------------------ */
+  const filteredRows = rows.filter((r) =>
+    r.studentName.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredRows.length / pageSize);
   const startIndex = (page - 1) * pageSize;
-  const visibleRows = rows.slice(startIndex, startIndex + pageSize);
+  const visibleRows = filteredRows.slice(startIndex, startIndex + pageSize);
 
   return (
     <div className="p-6">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h2 className="text-3xl font-bold text-cyan-400">Slot Book Details</h2>
 
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => {
-            setSelectedDate(e.target.value);
-            setPage(1);
-          }}
-          className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white"
-        />
+      {/* HEADER + FILTER ROW */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+
+        <h2 className="text-3xl font-bold text-cyan-400">
+          Slot Book Details
+        </h2>
+
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+
+          {/* Date Selector */}
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              setSelectedDate(e.target.value);
+              setPage(1);
+            }}
+            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white w-full md:w-auto"
+          />
+
+          {/* Search Box */}
+          <input
+            type="text"
+            value={search}
+            placeholder="Search student name..."
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white w-full md:w-60"
+          />
+        </div>
       </div>
 
+      {/* LOADING / NO DATA */}
       {loading ? (
         <div className="p-6 bg-slate-800 rounded-xl text-center">Loading…</div>
-      ) : rows.length === 0 ? (
+      ) : filteredRows.length === 0 ? (
         <div className="p-6 bg-slate-800 rounded-xl text-center">
-          No slots booked for this date.
+          No slots found.
         </div>
       ) : (
         <>
+          {/* Pagination Info */}
           <div className="flex justify-between mb-3 text-slate-300">
             Showing {startIndex + 1}–
-            {Math.min(startIndex + pageSize, rows.length)} of {rows.length}
+            {Math.min(startIndex + pageSize, filteredRows.length)} of{" "}
+            {filteredRows.length}
           </div>
 
+          {/* TABLE */}
           <div className="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -95,7 +130,7 @@ export default function TodayBookings() {
                       "Technology",
                       "Booked Time",
                     ].map((h) => (
-                      <th key={h} className="px-4 py-3">{h}</th>
+                      <th key={h} className="px-4 py-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -121,7 +156,7 @@ export default function TodayBookings() {
                           {r.studentName}
                         </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
+                        <td className="px-4 py-3 border-b border-slate-700 whitespace-nowrap">
                           <span className="text-cyan-300 font-semibold">
                             {format(s, "hh:mm a")}
                           </span>{" "}
@@ -148,7 +183,7 @@ export default function TodayBookings() {
                           {r.technology}
                         </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
+                        <td className="px-4 py-3 border-b border-slate-700 whitespace-nowrap">
                           {format(created, "dd MMM yyyy, hh:mm a")}
                         </td>
                       </tr>
@@ -159,8 +194,8 @@ export default function TodayBookings() {
             </div>
           </div>
 
-          {/* Pagination */}
-          <div className="flex justify-center gap-2 mt-4">
+          {/* PAGINATION */}
+          <div className="flex justify-center gap-2 mt-4 flex-wrap">
             <button
               onClick={() => page > 1 && setPage(page - 1)}
               className="px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg"
