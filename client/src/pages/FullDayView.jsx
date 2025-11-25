@@ -59,8 +59,11 @@ export default function FullDayView() {
 
   return (
     <div className="pb-14">
-      <h2 className="text-3xl mb-4 font-bold text-cyan-400">Interview Slots</h2>
+      <h2 className="text-3xl mb-4 font-bold text-cyan-400">
+        Interview Slots
+      </h2>
 
+      {/* DATE PICKER */}
       <div className="mb-4">
         <label className="text-sm text-slate-300 block mb-1">Select Date</label>
 
@@ -72,8 +75,9 @@ export default function FullDayView() {
             className="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white pr-10"
           />
           <span className="
-            absolute right-3 top-1/2 -translate-y-1/2 text-2xl 
-            text-cyan-400 drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]
+            absolute right-3 top-1/2 -translate-y-1/2 
+            text-2xl text-cyan-400 
+            drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]
           ">
             📅
           </span>
@@ -84,19 +88,20 @@ export default function FullDayView() {
         <div className="p-4 bg-slate-700 rounded">Loading...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+
           {slots.map((s) => {
             const start = parseLocal(s.slotStart);
             const end = parseLocal(s.slotEnd);
-
-            const isExpanded = expanded === s.slotStart;
             const now = new Date();
+
             const isPastSlot = start < now;
             const isFull = s.bookingsCount >= 6;
+            const isExpanded = expanded === s.slotStart;
 
-            const disabledCard =
-              isAdmin && isPastSlot
-                ? "opacity-40 grayscale pointer-events-none"
-                : "";
+            // ❗ Past slot → both admin & student same
+            const disabledClass = isPastSlot
+              ? "opacity-40 grayscale pointer-events-none"
+              : "";
 
             return (
               <div
@@ -104,15 +109,15 @@ export default function FullDayView() {
                 className={`p-4 rounded-xl shadow-xl transition-all duration-300 
                   ${colorForCount(s.bookingsCount)} 
                   ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}
-                  ${disabledCard}
+                  ${disabledClass}
                 `}
               >
+
                 {/* HEADER */}
                 <div
-                  className={`cursor-pointer select-none ${
-                    isAdmin && isPastSlot ? "pointer-events-none" : ""
-                  }`}
+                  className="cursor-pointer select-none"
                   onClick={() =>
+                    !isPastSlot &&
                     setExpanded((prev) =>
                       prev === s.slotStart ? null : s.slotStart
                     )
@@ -126,15 +131,15 @@ export default function FullDayView() {
                     Booked: {s.bookingsCount} / 6
                   </div>
 
-                  {isAdmin && isPastSlot && (
-                    <div className="text-xs mt-1 text-red-300 font-semibold">
-                      Past Slot (Admin View)
+                  {isPastSlot && (
+                    <div className="text-xs text-red-300 mt-1 font-semibold">
+                      Past Slot
                     </div>
                   )}
                 </div>
 
-                {/* Expanded details */}
-                {isExpanded && s.bookingsCount > 0 && !isPastSlot && (
+                {/* EXPANDED DETAILS (NOT for past slots) */}
+                {!isPastSlot && isExpanded && s.bookingsCount > 0 && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
                       Booked Students:
@@ -168,7 +173,7 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* Student Buttons */}
+                {/* STUDENT BOOK BUTTON */}
                 {!isAdmin && !isPastSlot && !isFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -178,6 +183,7 @@ export default function FullDayView() {
                   </button>
                 )}
 
+                {/* Student labels */}
                 {!isAdmin && isFull && (
                   <div className="mt-3 px-3 py-1 bg-red-800 rounded text-center text-white">
                     Slot Full
@@ -190,12 +196,13 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* ADMIN Footer */}
+                {/* ADMIN FOOTER (only for future slots) */}
                 {isAdmin && !isPastSlot && (
-                  <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-slate-200">
+                  <div className="mt-3 px-3 py-1 bg-slate-900 rounded text-center text-slate-200">
                     {isFull ? "Slot Full" : "Seats Available"}
                   </div>
                 )}
+
               </div>
             );
           })}
