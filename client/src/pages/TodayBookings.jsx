@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format, parse } from "date-fns";
-import { FiCalendar } from "react-icons/fi"; // 📌 Calendar Icon Added
 
-/* ------------------------------
-   TRUE IST DATE
+/* ------------------------------ 
+   TRUE IST DATE 
 ------------------------------ */
 function getTodayIST() {
   const now = new Date();
@@ -51,9 +50,7 @@ export default function TodayBookings() {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  /* ------------------------------
-        FILTER BY SEARCH
-  ------------------------------ */
+  /* Filter by search */
   const filteredRows = rows.filter((r) =>
     r.studentName.toLowerCase().includes(search.toLowerCase())
   );
@@ -65,15 +62,17 @@ export default function TodayBookings() {
   return (
     <div className="p-6">
 
-      {/* HEADER + FILTER ROW */}
+      {/* HEADER + SEARCH / DATE FILTER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h2 className="text-3xl font-bold text-cyan-400">Slot Book Details</h2>
+        
+        <h2 className="text-3xl font-bold text-cyan-400">
+          Slot Book Details
+        </h2>
 
         <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
 
-          {/* DATE PICKER with ICON */}
-          <div className="relative w-full md:w-56">
-            <FiCalendar className="absolute left-3 top-3 text-cyan-300 text-lg pointer-events-none" />
+          {/* Calendar Field with Icon */}
+          <div className="relative w-full md:w-auto">
             <input
               type="date"
               value={selectedDate}
@@ -81,11 +80,16 @@ export default function TodayBookings() {
                 setSelectedDate(e.target.value);
                 setPage(1);
               }}
-              className="pl-10 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white w-full"
+              className="px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white w-full md:w-auto pr-10"
             />
+
+            {/* Highlight Calendar Icon */}
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 pointer-events-none text-xl">
+              📅
+            </span>
           </div>
 
-          {/* Search Box */}
+          {/* Search Field */}
           <input
             type="text"
             value={search}
@@ -99,7 +103,7 @@ export default function TodayBookings() {
         </div>
       </div>
 
-      {/* LOADING / NO DATA */}
+      {/* LOADING / EMPTY */}
       {loading ? (
         <div className="p-6 bg-slate-800 rounded-xl text-center">Loading…</div>
       ) : filteredRows.length === 0 ? (
@@ -108,99 +112,92 @@ export default function TodayBookings() {
         </div>
       ) : (
         <>
-          {/* Pagination Info */}
+          {/* Pagination Text */}
           <div className="flex justify-between mb-3 text-slate-300">
             Showing {startIndex + 1}–
             {Math.min(startIndex + pageSize, filteredRows.length)} of{" "}
             {filteredRows.length}
           </div>
 
-          {/* TABLE - NO SCROLLBAR */}
+          {/* TABLE — NO SCROLLBAR */}
           <div className="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
-            <div className="w-full">
-              <table className="w-full text-sm table-fixed">
-                <thead className="bg-slate-900 text-cyan-300 border-b border-slate-700">
-                  <tr>
-                    {[
-                      "S.No",
-                      "Student",
-                      "Slot Time",
-                      "Duration",
-                      "Round",
-                      "Company",
-                      "Technology",
-                      "Booked Time",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 whitespace-nowrap text-left"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+            <table className="w-full text-sm table-auto">
+              <thead className="bg-slate-900 text-cyan-300 border-b border-slate-700">
+                <tr>
+                  {[
+                    "S.No",
+                    "Student",
+                    "Slot Time",
+                    "Duration",
+                    "Round",
+                    "Company",
+                    "Technology",
+                    "Booked Time",
+                  ].map((h) => (
+                    <th key={h} className="px-4 py-3 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
 
-                <tbody>
-                  {visibleRows.map((r, idx) => {
-                    const s = parseLocal(r.slotStart);
-                    const e = parseLocal(r.slotEnd);
-                    const created = parseLocal(r.createdAt);
+              <tbody>
+                {visibleRows.map((r, idx) => {
+                  const s = parseLocal(r.slotStart);
+                  const e = parseLocal(r.slotEnd);
+                  const created = parseLocal(r.createdAt);
 
-                    return (
-                      <tr
-                        key={r._id}
-                        className={`${
-                          idx % 2 === 0 ? "bg-slate-800" : "bg-slate-700"
-                        } hover:bg-slate-600`}
-                      >
-                        <td className="px-4 py-3 border-b border-slate-700">
-                          {startIndex + idx + 1}
-                        </td>
+                  return (
+                    <tr
+                      key={r._id}
+                      className={`${
+                        idx % 2 === 0 ? "bg-slate-800" : "bg-slate-700"
+                      } hover:bg-slate-600`}
+                    >
+                      <td className="px-4 py-3 border-b border-slate-700">
+                        {startIndex + idx + 1}
+                      </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
-                          {r.studentName}
-                        </td>
+                      <td className="px-4 py-3 border-b border-slate-700">
+                        {r.studentName}
+                      </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
-                          <span className="text-cyan-300 font-semibold">
-                            {format(s, "hh:mm a")}
-                          </span>{" "}
-                          – {format(e, "hh:mm a")}
-                        </td>
+                      <td className="px-4 py-3 border-b border-slate-700 whitespace-nowrap">
+                        <span className="text-cyan-300 font-semibold">
+                          {format(s, "hh:mm a")}
+                        </span>{" "}
+                        – {format(e, "hh:mm a")}
+                      </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
-                          {r.duration === 60
-                            ? "1 hour"
-                            : r.duration === 30
-                            ? "30 minutes"
-                            : `${r.duration} min`}
-                        </td>
+                      <td className="px-4 py-3 border-b border-slate-700">
+                        {r.duration === 60
+                          ? "1 hour"
+                          : r.duration === 30
+                          ? "30 mins"
+                          : `${r.duration} min`}
+                      </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
-                          {r.round}
-                        </td>
+                      <td className="px-4 py-3 border-b border-slate-700">
+                        {r.round}
+                      </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
-                          {r.company}
-                        </td>
+                      <td className="px-4 py-3 border-b border-slate-700">
+                        {r.company}
+                      </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700">
-                          {r.technology}
-                        </td>
+                      <td className="px-4 py-3 border-b border-slate-700">
+                        {r.technology}
+                      </td>
 
-                        <td className="px-4 py-3 border-b border-slate-700 whitespace-nowrap">
-                          {format(created, "dd MMM yyyy, hh:mm a")}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      <td className="px-4 py-3 border-b border-slate-700 whitespace-nowrap">
+                        {format(created, "dd MMM yyyy, hh:mm a")}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
-          {/* PAGINATION */}
+          {/* PAGINATION BUTTONS */}
           <div className="flex justify-center gap-2 mt-4 flex-wrap">
             <button
               onClick={() => page > 1 && setPage(page - 1)}
