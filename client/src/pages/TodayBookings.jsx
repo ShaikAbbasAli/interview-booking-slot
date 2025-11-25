@@ -1,57 +1,42 @@
+// TodayBookings.jsx
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format, parse } from "date-fns";
 
-/* small helper */
-function pad(n) {
-  return n.toString().padStart(2, "0");
+/* ------------------------------------------------------
+   FIX: Always get today in IST (NOT UTC)
+------------------------------------------------------ */
+function getTodayIST() {
+  const now = new Date();
+  const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  return ist.toISOString().split("T")[0];
 }
 
-/* Parse IST string "yyyy-MM-dd'T'HH:mm" WITHOUT timezone shift */
+/* Parse "YYYY-MM-DDTHH:mm" as LOCAL (IST safe) */
 function parseLocal(dtString) {
   if (!dtString) return new Date();
   return parse(dtString, "yyyy-MM-dd'T'HH:mm", new Date());
 }
 
 export default function TodayBookings() {
-  // ✅ FIXED: use LOCAL date, not toISOString (which is UTC)
-  const now = new Date();
-  const today =
-    now.getFullYear() +
-    "-" +
-    pad(now.getMonth() + 1) +
-    "-" +
-    pad(now.getDate()); // "YYYY-MM-DD" in local time (IST on your laptop)
-
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(getTodayIST());
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   async function loadData(date) {
     try {
-      setLoading(true);
-
       console.log("=== TodayBookings.loadData ===");
-      console.log("Browser local now:", new Date().toString());
-      console.log("Selected date (sent to server):", date);
+      console.log("Local browser now:", new Date());
+      console.log("Selected IST date sent to server:", date);
+
+      setLoading(true);
 
       const res = await API.get(`/bookings/by-date?date=${date}`);
 
-      console.log("Raw response from /bookings/by-date:", res.data);
-      if (res.data[0]) {
-        console.log(
-          "First row slotStart raw:",
-          res.data[0].slotStart,
-          "slotEnd:",
-          res.data[0].slotEnd,
-          "createdAt:",
-          res.data[0].createdAt
-        );
-      }
+      console.log("Raw server response:", res.data);
 
       const sorted = res.data.sort(
         (a, b) => parseLocal(a.slotStart) - parseLocal(b.slotStart)
@@ -59,7 +44,7 @@ export default function TodayBookings() {
 
       setRows(sorted);
     } catch (err) {
-      console.error("TodayBookings.loadData error:", err);
+      console.error(err);
       setRows([]);
     } finally {
       setLoading(false);
@@ -70,24 +55,22 @@ export default function TodayBookings() {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  // Pagination
   const totalPages = Math.ceil(rows.length / pageSize);
   const startIndex = (page - 1) * pageSize;
   const visibleRows = rows.slice(startIndex, startIndex + pageSize);
 
   return (
     <div className="p-6">
+      {/* Header Row */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent">
           Slot Book Details
         </h2>
 
-        {/* Calendar Selector (client-side calendar) */}
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => {
-            console.log("Date picker changed to:", e.target.value);
             setSelectedDate(e.target.value);
             setPage(1);
           }}
@@ -95,7 +78,6 @@ export default function TodayBookings() {
         />
       </div>
 
-      {/* LOADING */}
       {loading ? (
         <div className="p-6 bg-slate-800 rounded-xl text-center animate-pulse">
           Loading…
@@ -106,26 +88,20 @@ export default function TodayBookings() {
         </div>
       ) : (
         <>
-          {/* Pagination Info */}
           <div className="flex justify-between mb-3 text-slate-300">
             Showing {startIndex + 1}–
             {Math.min(startIndex + pageSize, rows.length)} of {rows.length}
           </div>
 
-          {/* Table Wrapper */}
+          {/* Table */}
           <div className="bg-slate-900/60 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
             <div className="overflow-x-auto md:overflow-x-visible">
               <table className="min-w-full text-sm text-left">
                 <thead className="bg-slate-900 text-cyan-300 border-b border-slate-700">
                   <tr>
-                    <TableHead>S.No</TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Slot Time</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Round</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Technology</TableHead>
-                    <TableHead>Booked Time</TableHead>
+                    {[ "S.No", "Student", "Slot Time", "Duration", "Round", "Company", "Technology", "Booked Time" ].map(h => (
+                      <th key={h} className="px-4 py-3">{h}</th>
+                    ))}
                   </tr>
                 </thead>
 
@@ -135,14 +111,7 @@ export default function TodayBookings() {
                     const e = parseLocal(r.slotEnd);
                     const created = parseLocal(r.createdAt);
 
-                    if (idx === 0) {
-                      console.log(
-                        "Row[0] parsed dates:",
-                        "slotStart:", s.toString(),
-                        "slotEnd:", e.toString(),
-                        "created:", created.toString()
-                      );
-                    }
+                    console.log("Parsed Slot:", s, e, created);
 
                     return (
                       <tr
@@ -151,31 +120,44 @@ export default function TodayBookings() {
                           idx % 2 === 0 ? "bg-slate-800" : "bg-slate-700"
                         } hover:bg-slate-600 transition`}
                       >
-                        <TableCell>{startIndex + idx + 1}</TableCell>
-                        <TableCell>{r.studentName}</TableCell>
+                        <td className="px-4 py-3 border-b border-slate-700">
+                          {startIndex + idx + 1}
+                        </td>
 
-                        <TableCell>
+                        <td className="px-4 py-3 border-b border-slate-700">
+                          {r.studentName}
+                        </td>
+
+                        <td className="px-4 py-3 border-b border-slate-700">
                           <span className="text-cyan-300 font-semibold">
                             {format(s, "hh:mm a")}
                           </span>{" "}
                           – {format(e, "hh:mm a")}
-                        </TableCell>
+                        </td>
 
-                        <TableCell>
+                        <td className="px-4 py-3 border-b border-slate-700">
                           {r.duration === 60
                             ? "1 hour"
                             : r.duration === 30
                             ? "30 minutes"
                             : `${r.duration} min`}
-                        </TableCell>
+                        </td>
 
-                        <TableCell>{r.round}</TableCell>
-                        <TableCell>{r.company}</TableCell>
-                        <TableCell>{r.technology}</TableCell>
+                        <td className="px-4 py-3 border-b border-slate-700">
+                          {r.round}
+                        </td>
 
-                        <TableCell>
+                        <td className="px-4 py-3 border-b border-slate-700">
+                          {r.company}
+                        </td>
+
+                        <td className="px-4 py-3 border-b border-slate-700">
+                          {r.technology}
+                        </td>
+
+                        <td className="px-4 py-3 border-b border-slate-700">
                           {format(created, "dd MMM yyyy, hh:mm a")}
-                        </TableCell>
+                        </td>
                       </tr>
                     );
                   })}
@@ -184,51 +166,38 @@ export default function TodayBookings() {
             </div>
           </div>
 
-          <Pagination page={page} totalPages={totalPages} setPage={setPage} />
+          {/* Pagination */}
+          <div className="flex justify-center gap-2 mt-4">
+            <button
+              onClick={() => page > 1 && setPage(page - 1)}
+              className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600"
+            >
+              Prev
+            </button>
+
+            {[...Array(totalPages)].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i + 1)}
+                className={`px-4 py-2 rounded-lg ${
+                  page === i + 1
+                    ? "bg-cyan-600 text-white"
+                    : "bg-slate-800 text-slate-300"
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+
+            <button
+              onClick={() => page < totalPages && setPage(page + 1)}
+              className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600"
+            >
+              Next
+            </button>
+          </div>
         </>
       )}
-    </div>
-  );
-}
-
-function TableHead({ children }) {
-  return <th className="px-4 py-3">{children}</th>;
-}
-
-function TableCell({ children }) {
-  return <td className="px-4 py-3 border-b border-slate-700">{children}</td>;
-}
-
-function Pagination({ page, totalPages, setPage }) {
-  return (
-    <div className="flex justify-center gap-2 mt-4">
-      <button
-        onClick={() => page > 1 && setPage(page - 1)}
-        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600"
-      >
-        Prev
-      </button>
-
-      {[...Array(totalPages)].map((_, i) => (
-        <button
-          key={i}
-          onClick={() => setPage(i + 1)}
-          className={`px-4 py-2 rounded-lg ${
-            page === i + 1
-              ? "bg-cyan-600 text-white"
-              : "bg-slate-800 text-slate-300"
-          }`}
-        >
-          {i + 1}
-        </button>
-      ))}
-
-      <button
-        onClick={() => page < totalPages && setPage(page + 1)}
-        className="px-4 py-2 bg-slate-800 rounded-lg border border-slate-600"
-      >
-        Next
-      </button>
     </div>
   );
 }

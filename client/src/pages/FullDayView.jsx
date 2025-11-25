@@ -1,56 +1,43 @@
+// FullDayView.jsx
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-// SAFE parser
+/* ------------------------------------------------------
+   FIX: true IST date without UTC shift
+------------------------------------------------------ */
+function getTodayIST() {
+  const now = new Date();
+  const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  return ist.toISOString().split("T")[0];
+}
+
 function parseLocal(dtString) {
-  if (!dtString || typeof dtString !== "string" || !dtString.includes("T")) {
-    return new Date();
-  }
-
-  const [datePart, timePart] = dtString.split("T");
-  const [y, m, d] = datePart.split("-").map(Number);
-  const [hh, mm] = timePart.split(":").map(Number);
-
-  return new Date(y, m - 1, d, hh, mm, 0);
+  if (!dtString || !dtString.includes("T")) return new Date();
+  const [d, t] = dtString.split("T");
+  const [y, m, dd] = d.split("-").map(Number);
+  const [hh, mm] = t.split(":").map(Number);
+  return new Date(y, m - 1, dd, hh, mm);
 }
 
 export default function FullDayView() {
   const navigate = useNavigate();
 
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isAdmin = user?.role === "admin";
+
+  const [selectedDate, setSelectedDate] = useState(getTodayIST());
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const isAdmin = user?.role === "admin";
-
-  const todayLocal = new Date();
-  const defaultDate = todayLocal.toISOString().split("T")[0];
-  const [selectedDate, setSelectedDate] = useState(defaultDate);
-
-  useEffect(() => {
-    loadSlots(selectedDate);
-  }, [selectedDate]);
-
   async function loadSlots(date) {
+    console.log("Requested IST date for slots:", date);
     try {
       setLoading(true);
-      console.log("=== FullDayView.loadSlots ===");
-      console.log("Selected date:", date);
-
       const res = await API.get(`/bookings/slots?date=${date}`);
-
-      console.log("Raw response from /bookings/slots:", res.data);
-      if (res.data[0]) {
-        console.log(
-          "First slot raw:",
-          "slotStart:", res.data[0].slotStart,
-          "slotEnd:", res.data[0].slotEnd
-        );
-      }
-
+      console.log("FullDay slots:", res.data);
       setSlots(res.data);
     } catch (err) {
       console.error("Slots load failed:", err);
@@ -59,6 +46,10 @@ export default function FullDayView() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadSlots(selectedDate);
+  }, [selectedDate]);
 
   function colorForCount(count) {
     if (count >= 6) return "bg-red-700";
@@ -75,15 +66,12 @@ export default function FullDayView() {
     <div className="pb-14">
       <h2 className="text-3xl mb-4 text-cyan-400">Interview Slots</h2>
 
-      <div className="mb-4 flex items-center gap-2">
-        <label className="text-sm text-slate-300 block">Select Date</label>
+      <div className="mb-4">
+        <label className="text-sm text-slate-300 block mb-1">Select Date</label>
         <input
           type="date"
           value={selectedDate}
-          onChange={(e) => {
-            console.log("FullDayView date changed to:", e.target.value);
-            setSelectedDate(e.target.value);
-          }}
+          onChange={(e) => setSelectedDate(e.target.value)}
           className="p-2 rounded bg-slate-800 border border-slate-600 text-white"
         />
       </div>
@@ -109,7 +97,6 @@ export default function FullDayView() {
                   s.bookingsCount
                 )} ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
               >
-                {/* HEADER */}
                 <div
                   className="cursor-pointer select-none"
                   onClick={() =>
@@ -125,62 +112,41 @@ export default function FullDayView() {
                   <div className="text-sm mt-1 text-white">
                     Booked: {s.bookingsCount} / 6
                   </div>
-
-                  <div className="text-xs text-slate-200 mt-1">
-                    {isExpanded ? "Click to collapse" : "Click to view details"}
-                  </div>
                 </div>
 
-                {/* EXPANDED DETAILS */}
                 {isExpanded && s.bookingsCount > 0 && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
                       Booked Students:
                     </div>
 
-                    {s.bookings.map((b, idx) => {
-                      if (idx === 0) {
-                        console.log(
-                          "FullDayView expanded booking example:",
-                          b
-                        );
-                      }
-
-                      return (
-                        <div
-                          key={b._id}
-                          className="py-2 border-b border-slate-600"
-                        >
-                          <div className="font-semibold text-white">
-                            {b.student?.name}
-                          </div>
-
-                          <div className="text-xs text-slate-400 mt-1">
-                            Company Type:{" "}
-                            <span className="text-white">{b.company}</span>
-                            <br />
-                            Round:{" "}
-                            <span className="text-white">{b.round}</span>
-                            <br />
-                            Technology:{" "}
-                            <span className="text-white">{b.technology}</span>
-                            <br />
-                            Duration:{" "}
-                            <span className="text-white">
-                              {b.duration === 60
-                                ? "1 hour"
-                                : b.duration === 30
-                                ? "30 minutes"
-                                : b.duration + " minutes"}
-                            </span>
-                          </div>
+                    {s.bookings.map((b) => (
+                      <div key={b._id} className="py-2 border-b border-slate-600">
+                        <div className="font-semibold text-white">
+                          {b.student?.name}
                         </div>
-                      );
-                    })}
+
+                        <div className="text-xs text-slate-400 mt-1">
+                          Company: <span className="text-white">{b.company}</span>
+                          <br />
+                          Round: <span className="text-white">{b.round}</span>
+                          <br />
+                          Tech: <span className="text-white">{b.technology}</span>
+                          <br />
+                          Duration:{" "}
+                          <span className="text-white">
+                            {b.duration === 60
+                              ? "1 hour"
+                              : b.duration === 30
+                              ? "30 minutes"
+                              : `${b.duration} minutes`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* STUDENT BUTTON / LABELS */}
                 {!isAdmin && !isPastSlot && !isFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
