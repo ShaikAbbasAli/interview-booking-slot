@@ -1,11 +1,10 @@
-// EditBooking.jsx (Updated with react-hot-toast UI popups)
-
+// EditBooking.jsx — Neon Glow Cyber Modal Version
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import toast from "react-hot-toast"; // ⭐ NEW
 
+/* Utility */
 function pad(n) {
   return n.toString().padStart(2, "0");
 }
@@ -34,9 +33,7 @@ const ROUND_OPTIONS = [
   "Assessment",
   "Screening",
 ];
-
 const COMPANY_OPTIONS = ["MNC", "Mid Range", "Startup"];
-
 const TECH_OPTIONS = [
   "Python",
   "DevOps",
@@ -46,6 +43,45 @@ const TECH_OPTIONS = [
   "Java",
   "MERN Stack",
 ];
+
+/* 🔥 Neon Modal Component */
+function NeonModal({ show, message, onClose }) {
+  if (!show) return null;
+
+  return (
+    <div className="
+      fixed inset-0 bg-black/70 backdrop-blur-md 
+      flex items-center justify-center z-50
+      animate-fadeIn
+    ">
+      <div
+        className="
+          bg-slate-900 border border-cyan-400/40 rounded-2xl 
+          p-6 w-80 text-center shadow-[0_0_25px_rgba(0,255,255,0.7)]
+          animate-scaleIn
+        "
+      >
+        <div className="text-cyan-300 text-xl font-bold mb-2 drop-shadow-lg">
+          ✨ SUCCESS
+        </div>
+
+        <div className="text-slate-200 mb-5">{message}</div>
+
+        <button
+          onClick={onClose}
+          className="
+            px-5 py-2 rounded-xl 
+            bg-cyan-600 hover:bg-cyan-500 
+            text-white font-semibold 
+            shadow-[0_0_15px_rgba(0,255,255,0.6)]
+          "
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function EditBooking() {
   const { id } = useParams();
@@ -63,7 +99,14 @@ export default function EditBooking() {
   const hours = Array.from({ length: 15 }, (_, i) => i + 9);
   const minutesArr = ["00", "30"];
 
-  // -------------------- LOAD BOOKING --------------------
+  /* Modal State */
+  const [modal, setModal] = useState({ show: false, message: "" });
+
+  const showModal = (msg, cb) => {
+    setModal({ show: true, message: msg });
+    setTimeout(() => cb && cb(), 700);
+  };
+
   useEffect(() => {
     async function load() {
       try {
@@ -71,8 +114,7 @@ export default function EditBooking() {
         const found = res.data.find((b) => b._id === id);
 
         if (!found) {
-          toast.error("Booking not found");
-          navigate("/mybookings");
+          showModal("Booking not found.", () => navigate("/mybookings"));
           return;
         }
 
@@ -83,26 +125,27 @@ export default function EditBooking() {
         setHour(pad(s.getHours()));
         setMinute(pad(s.getMinutes()));
         setDuration((e - s) / 60000);
+
         setCompany(found.company || "");
         setRound(found.round || "");
         setTechnology(found.technology || "");
       } catch (err) {
-        toast.error("Failed to load booking");
-        navigate("/mybookings");
+        showModal("Failed to load booking.", () => navigate("/mybookings"));
       } finally {
         setLoading(false);
       }
     }
+
     load();
   }, [id, navigate]);
 
-  // -------------------- SUBMIT UPDATE --------------------
+  /* ---- SUBMIT ---- */
   async function submit(e) {
     e.preventDefault();
 
-    if (!company) return toast.error("Please select Company type");
-    if (!round) return toast.error("Please select Round");
-    if (!technology) return toast.error("Please select Technology");
+    if (!company) return showModal("Select a Company Type.");
+    if (!round) return showModal("Select a Round.");
+    if (!technology) return showModal("Select a Technology.");
 
     const [Y, M, D] = date.split("-").map(Number);
     const startIST = new Date(Y, M - 1, D, Number(hour), Number(minute));
@@ -117,35 +160,28 @@ export default function EditBooking() {
       now.getDate()
     );
 
-    if (bookingDay < todayDate) {
-      return toast.error("Cannot edit past dates");
-    }
+    if (bookingDay < todayDate)
+      return showModal("Cannot edit past dates.");
 
-    if (bookingDay.getTime() === todayDate.getTime() && startIST < now) {
-      return toast.error("Cannot edit past time slots today");
-    }
+    if (bookingDay.getTime() === todayDate.getTime() && startIST < now)
+      return showModal("Cannot edit a past time slot.");
 
-    if (![0, 30].includes(startIST.getMinutes())) {
-      return toast.error("Start time must be at :00 or :30");
-    }
+    if (![0, 30].includes(startIST.getMinutes()))
+      return showModal("Time must be at :00 or :30.");
 
     if (
       endIST.getDate() !== startIST.getDate() &&
       (endIST.getHours() !== 0 || endIST.getMinutes() !== 0)
     ) {
-      return toast.error("End time cannot exceed 12:00 AM midnight");
+      return showModal("End time cannot go beyond midnight.");
     }
 
-    // Handle next-day midnight
     let endDateString = date;
     if (endIST.getDate() !== startIST.getDate()) {
-      const next = new Date(Y, M - 1, D + 1);
-      endDateString =
-        next.getFullYear() +
-        "-" +
-        pad(next.getMonth() + 1) +
-        "-" +
-        pad(next.getDate());
+      const nextDay = new Date(Y, M - 1, D + 1);
+      endDateString = `${nextDay.getFullYear()}-${pad(
+        nextDay.getMonth() + 1
+      )}-${pad(nextDay.getDate())}`;
     }
 
     const payload = {
@@ -160,159 +196,179 @@ export default function EditBooking() {
 
     try {
       await API.put(`/bookings/${id}`, payload);
-      toast.success("Booking updated!");
-      navigate("/mybookings");
+      showModal("Booking Updated Successfully!", () =>
+        navigate("/mybookings")
+      );
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Update failed");
+      showModal(err.response?.data?.msg || "Update failed.");
     }
   }
 
-  // -------------------- DELETE BOOKING --------------------
+  /* ---- DELETE ---- */
   async function remove() {
-    try {
+    showModal("Deleting booking...", null);
+
+    setTimeout(async () => {
       await API.delete(`/bookings/${id}/student`);
-      toast.success("Booking deleted");
-      navigate("/mybookings");
-    } catch {
-      toast.error("Failed to delete booking");
-    }
+      showModal("Booking Deleted!", () => navigate("/mybookings"));
+    }, 600);
   }
 
-  if (loading) return <div className="text-slate-300">Loading…</div>;
+  if (loading) return <div>Loading…</div>;
 
-  // -------------------- UI --------------------
   return (
-    <div className="max-w-md mx-auto bg-slate-800 p-6 rounded-xl shadow-lg">
-      <button
-        onClick={() => navigate("/mybookings")}
-        className="mb-4 px-3 py-1 bg-slate-700 rounded hover:bg-slate-600"
-      >
-        ← Back
-      </button>
+    <>
+      <NeonModal
+        show={modal.show}
+        message={modal.message}
+        onClose={() => setModal({ show: false, message: "" })}
+      />
 
-      <h2 className="text-xl mb-4 text-cyan-400 font-bold">Edit Booking</h2>
+      <div className="max-w-md mx-auto bg-slate-800 p-6 rounded-xl border border-slate-600 shadow-xl">
+        <button
+          onClick={() => navigate("/mybookings")}
+          className="mb-4 px-3 py-1 bg-slate-700 rounded"
+        >
+          ← Back
+        </button>
 
-      <form onSubmit={submit}>
-        {/* DATE + ICON */}
-        <label className="text-slate-300">Date</label>
-        <div className="relative">
+        <h2 className="text-xl mb-4 text-cyan-400">Edit Booking</h2>
+
+        <form onSubmit={submit}>
+          {/* DATE (past disabled) */}
+          <label>Date</label>
           <input
             type="date"
-            min={format(new Date(), "yyyy-MM-dd")} // disable past dates
             value={date}
+            min={format(new Date(), "yyyy-MM-dd")}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full p-2 mb-3 rounded bg-slate-700 text-white pr-10"
+            className="w-full p-2 mb-3 rounded bg-slate-700"
           />
 
-          {/* bright calendar icon */}
-          <span
-            className="
-              absolute right-3 top-1/2 -translate-y-1/2 text-2xl
-              text-cyan-400 drop-shadow-[0_0_10px_rgba(0,255,255,0.9)]
-              pointer-events-none
-            "
+          {/* Time Selectors */}
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1">
+              <label>Hour</label>
+              <select
+                value={hour}
+                onChange={(e) => setHour(e.target.value)}
+                className="w-full p-2 rounded bg-slate-700"
+              >
+                {hours.map((h) => (
+                  <option key={h} value={pad(h)}>
+                    {pad(h)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-24">
+              <label>Minute</label>
+              <select
+                value={minute}
+                onChange={(e) => setMinute(e.target.value)}
+                className="w-full p-2 rounded bg-slate-700"
+              >
+                {minutesArr.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-32">
+              <label>Duration</label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="w-full p-2 rounded bg-slate-700"
+              >
+                <option value={30}>30 Minutes</option>
+                <option value={60}>1 Hour</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Dropdowns */}
+          <label>Company Type</label>
+          <select
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            className="w-full p-2 mb-3 rounded bg-slate-700"
           >
-            📅
-          </span>
-        </div>
+            <option value="">-- Select Company Type --</option>
+            {COMPANY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
 
-        {/* TIME FIELDS */}
-        <div className="flex gap-2 mb-3">
-          <div className="flex-1">
-            <label>Hour</label>
-            <select
-              value={hour}
-              onChange={(e) => setHour(e.target.value)}
-              className="w-full p-2 rounded bg-slate-700"
-            >
-              {hours.map((h) => (
-                <option key={h} value={pad(h)}>
-                  {pad(h)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="w-24">
-            <label>Minute</label>
-            <select
-              value={minute}
-              onChange={(e) => setMinute(e.target.value)}
-              className="w-full p-2 rounded bg-slate-700"
-            >
-              {minutesArr.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="w-32">
-            <label>Duration</label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full p-2 rounded bg-slate-700"
-            >
-              <option value={30}>30 Minutes</option>
-              <option value={60}>1 Hour</option>
-            </select>
-          </div>
-        </div>
-
-        {/* DROPDOWNS */}
-        <label>Company Type</label>
-        <select
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-          className="w-full p-2 mb-3 rounded bg-slate-700"
-        >
-          <option value="">-- Select Company Type --</option>
-          {COMPANY_OPTIONS.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-
-        <label>Round</label>
-        <select
-          value={round}
-          onChange={(e) => setRound(e.target.value)}
-          className="w-full p-2 mb-3 rounded bg-slate-700"
-        >
-          <option value="">-- Select Round --</option>
-          {ROUND_OPTIONS.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-
-        <label>Technology</label>
-        <select
-          value={technology}
-          onChange={(e) => setTechnology(e.target.value)}
-          className="w-full p-2 mb-4 rounded bg-slate-700"
-        >
-          <option value="">-- Select Technology --</option>
-          {TECH_OPTIONS.map((t) => (
-            <option key={t}>{t}</option>
-          ))}
-        </select>
-
-        {/* BUTTONS */}
-        <div className="flex gap-3">
-          <button className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-500">
-            Save
-          </button>
-
-          <button
-            type="button"
-            onClick={remove}
-            className="px-4 py-2 bg-red-600 rounded hover:bg-red-500"
+          <label>Round</label>
+          <select
+            value={round}
+            onChange={(e) => setRound(e.target.value)}
+            className="w-full p-2 mb-3 rounded bg-slate-700"
           >
-            Delete
-          </button>
-        </div>
-      </form>
-    </div>
+            <option value="">-- Select Round --</option>
+            {ROUND_OPTIONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+
+          <label>Technology</label>
+          <select
+            value={technology}
+            onChange={(e) => setTechnology(e.target.value)}
+            className="w-full p-2 mb-4 rounded bg-slate-700"
+          >
+            <option value="">-- Select Technology --</option>
+            {TECH_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+
+          {/* Buttons */}
+          <div className="flex gap-3">
+            <button className="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded">
+              Save
+            </button>
+
+            <button
+              type="button"
+              onClick={remove}
+              className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded"
+            >
+              Delete
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
   );
 }
+
+/* Animations */
+const styles = `
+@keyframes fadeIn {
+  from { opacity: 0 } 
+  to { opacity: 1 }
+}
+@keyframes scaleIn {
+  0% { transform: scale(0.6); opacity: 0 }
+  100% { transform: scale(1); opacity: 1 }
+}
+
+.animate-fadeIn {
+  animation: fadeIn .3s ease-out;
+}
+.animate-scaleIn {
+  animation: scaleIn .25s ease-out;
+}
+`;
+document.head.insertAdjacentHTML("beforeend", `<style>${styles}</style>`);
