@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +20,6 @@ function parseLocal(dtString) {
 
 export default function FullDayView() {
   const navigate = useNavigate();
-  const dateRef = useRef(); // 👈 ref for manually triggering calendar popup
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user?.role === "admin";
@@ -60,34 +59,37 @@ export default function FullDayView() {
 
   return (
     <div className="pb-14">
-      <h2 className="text-3xl mb-4 text-cyan-400">Interview Slots</h2>
+      {/* PAGE TITLE */}
+      <h2 className="text-3xl mb-4 font-bold text-cyan-400">
+        Interview Slots
+      </h2>
 
-      {/* DATE SELECTOR WITH CLICKABLE ICON */}
+      {/* DATE PICKER WITH CALENDAR ICON */}
       <div className="mb-4">
         <label className="text-sm text-slate-300 block mb-1">Select Date</label>
 
-        <div className="relative inline-block w-full sm:w-auto">
-          {/* Date Input */}
+        <div className="relative w-60">
           <input
-            ref={dateRef}
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="p-2 pr-10 rounded bg-slate-800 border border-slate-600 text-white cursor-pointer w-full sm:w-auto"
+            className="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white pr-10"
           />
 
-          {/* Clickable Calendar Icon */}
-          <button
-            onClick={() => dateRef.current.showPicker()} // 👈 Opens calendar popup
-            type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400 hover:text-cyan-300 text-xl"
-          >
+          {/* HIGHLY VISIBLE CALENDAR ICON */}
+          <span className="
+            absolute right-3 top-1/2 -translate-y-1/2 
+            text-2xl 
+            text-cyan-400 
+            drop-shadow-[0_0_8px_rgba(0,255,255,0.9)]
+            pointer-events-none
+          ">
             📅
-          </button>
+          </span>
         </div>
       </div>
 
-      {/* SLOT CARDS */}
+      {/* LOADING */}
       {loading ? (
         <div className="p-4 bg-slate-700 rounded">Loading...</div>
       ) : (
@@ -97,6 +99,7 @@ export default function FullDayView() {
             const end = parseLocal(s.slotEnd);
 
             const isExpanded = expanded === s.slotStart;
+
             const now = new Date();
             const isPastSlot = start < now;
             const isFull = s.bookingsCount >= 6;
@@ -104,13 +107,13 @@ export default function FullDayView() {
             return (
               <div
                 key={s.slotStart}
-                className={`p-4 rounded-xl shadow-xl transition-all ${colorForCount(
+                className={`p-4 rounded-xl shadow-xl transition-all duration-300 ${colorForCount(
                   s.bookingsCount
                 )} ${isExpanded ? "border-4 border-cyan-400 scale-105" : ""}`}
               >
-                {/* Slot Header */}
+                {/* HEADER */}
                 <div
-                  className="cursor-pointer"
+                  className="cursor-pointer select-none"
                   onClick={() =>
                     setExpanded((prev) =>
                       prev === s.slotStart ? null : s.slotStart
@@ -124,9 +127,13 @@ export default function FullDayView() {
                   <div className="text-sm mt-1 text-white">
                     Booked: {s.bookingsCount} / 6
                   </div>
+
+                  <div className="text-xs text-slate-200 mt-1">
+                    {isExpanded ? "Click to collapse" : "Click to view details"}
+                  </div>
                 </div>
 
-                {/* Expanded Student List */}
+                {/* EXPANDED BOOKING DETAILS */}
                 {isExpanded && s.bookingsCount > 0 && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
@@ -140,11 +147,14 @@ export default function FullDayView() {
                         </div>
 
                         <div className="text-xs text-slate-400 mt-1">
-                          Company: <span className="text-white">{b.company}</span>
+                          Company:{" "}
+                          <span className="text-white">{b.company}</span>
                           <br />
-                          Round: <span className="text-white">{b.round}</span>
+                          Round:{" "}
+                          <span className="text-white">{b.round}</span>
                           <br />
-                          Tech: <span className="text-white">{b.technology}</span>
+                          Technology:{" "}
+                          <span className="text-white">{b.technology}</span>
                           <br />
                           Duration:{" "}
                           <span className="text-white">
@@ -160,7 +170,7 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* Student UI */}
+                {/* STUDENT BUTTONS */}
                 {!isAdmin && !isPastSlot && !isFull && (
                   <button
                     className="mt-3 px-3 py-1 w-full bg-cyan-600 rounded hover:bg-cyan-500"
@@ -182,9 +192,9 @@ export default function FullDayView() {
                   </div>
                 )}
 
-                {/* Admin View */}
+                {/* ADMIN LABEL */}
                 {isAdmin && (
-                  <div className="mt-3 px-3 py-1 bg-slate-900 rounded text-center text-slate-200">
+                  <div className="mt-3 px-3 py-1 bg-slate-900 text-center rounded text-slate-200">
                     {isFull ? "Slot Full" : "Seats Available"}
                   </div>
                 )}
