@@ -4,7 +4,7 @@ import {
   Menu,
   X,
   LayoutDashboard,
-  Calendar,
+  CalendarDays,
   BookOpen,
   Users,
 } from "lucide-react";
@@ -13,10 +13,10 @@ import toast from "react-hot-toast";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = JSON.parse(localStorage.getItem("user") || "null");
-
-  const isAuthPage = location.pathname === "/auth";
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const isAuthPage = location.pathname === "/auth";
 
   const logout = () => {
     toast.success("Logged out successfully");
@@ -26,102 +26,90 @@ export default function Navbar() {
   };
 
   return (
-    <div className="
-      fixed top-0 left-0 w-full z-50 
-      bg-slate-900/90 backdrop-blur-xl 
-      border-b border-slate-700/70 
-      shadow-lg shadow-cyan-500/10
-    ">
+    <div className="fixed top-0 left-0 w-full z-50 bg-slate-900/80 backdrop-blur-xl shadow-xl border-b border-slate-700/50">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
 
-        {/* ------------ LOGO + TITLE ------------ */}
+        {/* ---------------- LOGO & TITLE ---------------- */}
         <Link
           to={user?.role === "admin" ? "/admin/students" : "/dashboard"}
-          className="flex items-center gap-4 select-none"
+          className="flex items-center gap-4"
         >
-          <div className="
-            w-14 h-14 rounded-full overflow-hidden 
-            shadow-md shadow-cyan-300/20 
-            ring-2 ring-cyan-400/40
-          ">
+          {/* GLOWING PROFILE IMAGE */}
+          <div className="relative w-14 h-14">
+            <div className="
+              absolute inset-0 rounded-full
+              bg-cyan-400/30 blur-xl
+              animate-pulse
+            "></div>
+
             <img
               src="https://i.postimg.cc/vmXGMpr3/Aikya-AI.png"
               alt="logo"
-              className="w-full h-full object-cover"
+              className="
+                relative w-14 h-14 rounded-full object-cover 
+                ring-2 ring-cyan-400/40 shadow-lg shadow-cyan-500/40
+              "
             />
           </div>
 
-          <div className="leading-tight">
-            <div className="
-              text-3xl font-extrabold 
-              tracking-wide 
-              bg-gradient-to-r from-cyan-300 via-blue-400 to-cyan-200 
-              bg-clip-text text-transparent 
-              drop-shadow-[0_0_6px_rgba(0,255,255,0.7)]
-            ">
+          <div className="leading-tight select-none">
+            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent drop-shadow-lg tracking-wide">
               Aikya Interview
-            </div>
-            <div className="text-xs text-slate-400 tracking-wider">
+            </h1>
+            <p className="text-xs text-slate-400 tracking-wide">
               Smart Booking System
-            </div>
+            </p>
           </div>
         </Link>
 
-        {/* ------------ DESKTOP MENU ------------ */}
+        {/* ---------------- DESKTOP MENU ---------------- */}
         {!isAuthPage && user && (
           <nav className="hidden md:flex items-center gap-3 ml-10">
 
-            {/* STUDENT LINKS */}
             {user.role === "student" && (
               <>
-                <NavItem to="/dashboard" label="Dashboard" active={location.pathname === "/dashboard"} />
-                <NavItem to="/book" label="Book Slot" active={location.pathname === "/book"} />
-                <NavItem to="/mybookings" label="My Bookings" active={location.pathname === "/mybookings"} />
-                <NavItem to="/fullday" label="Full Day View" active={location.pathname === "/fullday"} />
-                <NavItem to="/today-bookings" label="Today Slot Details" active={location.pathname === "/today-bookings"} />
+                <DesktopNav to="/dashboard" label="Dashboard" activePath={location.pathname} />
+                <DesktopNav to="/book" label="Book Slot" activePath={location.pathname} />
+                <DesktopNav to="/mybookings" label="My Bookings" activePath={location.pathname} />
+                <DesktopNav to="/fullday" label="Full Day View" activePath={location.pathname} />
+                <DesktopNav to="/today-bookings" label="Today Slot Details" activePath={location.pathname} />
               </>
             )}
 
-            {/* ADMIN LINKS */}
             {user.role === "admin" && (
               <>
-                <NavItem to="/admin/students" label="Students" active={location.pathname === "/admin/students"} />
-                <NavItem to="/fullday" label="Full Day View" active={location.pathname === "/fullday"} />
-                <NavItem to="/today-bookings" label="Today Slot Details" active={location.pathname === "/today-bookings"} />
+                <DesktopNav to="/admin/students" label="Students" activePath={location.pathname} />
+                <DesktopNav to="/fullday" label="Full Day View" activePath={location.pathname} />
+                <DesktopNav to="/today-bookings" label="Today Slot Details" activePath={location.pathname} />
               </>
             )}
           </nav>
         )}
 
-        {/* ------------ USER PANEL (DESKTOP) ------------ */}
+        {/* ---------------- DESKTOP USER PANEL ---------------- */}
         {!isAuthPage && user && (
-          <div className="hidden md:flex items-center gap-4">
-            <div className="text-sm font-medium text-slate-200">
+          <div className="hidden md:flex items-center gap-5">
+
+            <div className="text-sm font-medium text-cyan-200">
               {user.name}
-              <span className="text-xs text-slate-400"> ({user.role})</span>
+              <span className="text-slate-400 text-xs"> ({user.role})</span>
             </div>
 
             <button
               onClick={logout}
-              className="
-                px-4 py-2 rounded-xl 
-                bg-red-600 text-white 
-                font-semibold
-                shadow-lg shadow-red-700/30 
-                hover:bg-red-500 
-                transition-all duration-200 
-                hover:scale-105 active:scale-95
-              "
+              className="px-4 py-2 rounded-xl bg-red-600 text-white font-semibold
+              shadow-md shadow-red-800/40 hover:bg-red-500 transition-all
+              hover:scale-105 active:scale-95"
             >
               Logout
             </button>
           </div>
         )}
 
-        {/* ------------ MOBILE MENU BUTTON ------------ */}
+        {/* ---------------- MOBILE TOGGLE ---------------- */}
         {user && !isAuthPage && (
           <button
-            className="md:hidden text-cyan-300 hover:text-cyan-200 transition"
+            className="md:hidden text-white"
             onClick={() => setMenuOpen(!menuOpen)}
           >
             {menuOpen ? <X size={28} /> : <Menu size={28} />}
@@ -129,29 +117,25 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* ------------ MOBILE MENU ------------ */}
+      {/* ---------------- MOBILE MENU ---------------- */}
       {menuOpen && user && !isAuthPage && (
-        <div className="
-          md:hidden px-6 pb-5 pt-3 
-          bg-slate-800/90 backdrop-blur-xl 
-          border-t border-slate-700/50 
-          space-y-3 animate-slideDown
-        ">
+        <div className="md:hidden px-6 pb-5 pt-3 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700/50 space-y-3 animate-slideDown">
+
           {user.role === "student" && (
             <>
-              <MobileItem icon={<LayoutDashboard size={18} />} to="/dashboard" label="Dashboard" close={setMenuOpen} />
-              <MobileItem icon={<BookOpen size={18} />} to="/book" label="Book Slot" close={setMenuOpen} />
-              <MobileItem icon={<Calendar size={18} />} to="/mybookings" label="My Bookings" close={setMenuOpen} />
-              <MobileItem icon={<Calendar size={18} />} to="/fullday" label="Full Day View" close={setMenuOpen} />
-              <MobileItem icon={<Calendar size={18} />} to="/today-bookings" label="Today Slot Details" close={setMenuOpen} />
+              <MobileNav icon={<LayoutDashboard />} to="/dashboard" label="Dashboard" close={setMenuOpen} />
+              <MobileNav icon={<BookOpen />} to="/book" label="Book Slot" close={setMenuOpen} />
+              <MobileNav icon={<CalendarDays />} to="/mybookings" label="My Bookings" close={setMenuOpen} />
+              <MobileNav icon={<CalendarDays />} to="/fullday" label="Full Day View" close={setMenuOpen} />
+              <MobileNav icon={<CalendarDays />} to="/today-bookings" label="Today Slot Details" close={setMenuOpen} />
             </>
           )}
 
           {user.role === "admin" && (
             <>
-              <MobileItem icon={<Users size={18} />} to="/admin/students" label="Students" close={setMenuOpen} />
-              <MobileItem icon={<Calendar size={18} />} to="/fullday" label="Full Day View" close={setMenuOpen} />
-              <MobileItem icon={<Calendar size={18} />} to="/today-bookings" label="Today Slot Details" close={setMenuOpen} />
+              <MobileNav icon={<Users />} to="/admin/students" label="Students" close={setMenuOpen} />
+              <MobileNav icon={<CalendarDays />} to="/fullday" label="Full Day View" close={setMenuOpen} />
+              <MobileNav icon={<CalendarDays />} to="/today-bookings" label="Today Slot Details" close={setMenuOpen} />
             </>
           )}
 
@@ -160,13 +144,7 @@ export default function Navbar() {
               setMenuOpen(false);
               logout();
             }}
-            className="
-              w-full py-3 rounded-xl 
-              bg-red-600 text-white 
-              font-semibold 
-              shadow-lg shadow-red-900/50 
-              hover:bg-red-500 transition-all
-            "
+            className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold shadow-md hover:bg-red-500 transition-all"
           >
             Logout
           </button>
@@ -176,17 +154,19 @@ export default function Navbar() {
   );
 }
 
-/* ------------ DESKTOP NAV ITEM ------------ */
-function NavItem({ to, label, active }) {
+/* ---------------- DESKTOP NAV ITEM ---------------- */
+function DesktopNav({ to, label, activePath }) {
+  const active = activePath === to;
+
   return (
     <Link
       to={to}
       className={`
         px-4 py-2 rounded-xl font-medium text-sm
-        transition-all duration-200
+        transition-all duration-200 select-none
         ${active
-          ? "bg-cyan-600/20 text-cyan-300 shadow shadow-cyan-300/30 border border-cyan-300/40"
-          : "text-slate-300 hover:bg-white/10 hover:text-cyan-300 border border-transparent"
+          ? "bg-cyan-600/30 text-cyan-300 border border-cyan-400/40 shadow shadow-cyan-200/20"
+          : "text-slate-300 hover:bg-white/10 hover:text-cyan-300"
         }
       `}
     >
@@ -195,16 +175,16 @@ function NavItem({ to, label, active }) {
   );
 }
 
-/* ------------ MOBILE NAV ITEM ------------ */
-function MobileItem({ to, label, icon, close }) {
+/* ---------------- MOBILE NAV ITEM ---------------- */
+function MobileNav({ to, label, icon, close }) {
   return (
     <Link
       to={to}
       onClick={() => close(false)}
       className="
         flex items-center gap-3 px-4 py-3 rounded-xl
-        bg-white/5 text-slate-200 border border-white/10
-        hover:bg-cyan-500/20 hover:text-cyan-200
+        bg-white/5 text-slate-200 border border-slate-700/30
+        hover:bg-cyan-600/20 hover:text-cyan-300
         transition-all duration-200
       "
     >
