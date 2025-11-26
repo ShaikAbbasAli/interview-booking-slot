@@ -57,6 +57,8 @@ export default function FullDayView() {
     }
   }
 
+  const todayIST = getTodayIST();
+
   return (
     <div className="pb-14">
       <h2 className="text-3xl mb-4 font-bold text-cyan-400">Interview Slots</h2>
@@ -89,8 +91,19 @@ export default function FullDayView() {
             const isPastSlot = start < now;
             const isFull = s.bookingsCount >= 6;
 
-            /* SAME STUDENT + ADMIN PAST SLOT BEHAVIOR */
+            /* We allow expansion for:
+               - future slots (normal)
+               - past slots only if the selected date is TODAY (so user can expand today's past slots)
+               Older past dates remain non-interactive.
+            */
+            const isSelectedDateToday = selectedDate === todayIST;
+            const allowExpandForPast = isPastSlot && isSelectedDateToday;
+
+            /* SAME STUDENT + ADMIN PAST SLOT BEHAVIOR: visually dim past slots */
             const dimClass = isPastSlot ? "opacity-40 grayscale" : "";
+
+            /* If it's past and NOT today, block pointer events so click doesn't expand */
+            const headerPointerClass = isPastSlot && !isSelectedDateToday ? "pointer-events-none" : "cursor-pointer";
 
             return (
               <div
@@ -103,12 +116,14 @@ export default function FullDayView() {
               >
                 {/* HEADER */}
                 <div
-                  className="cursor-pointer select-none"
+                  className={`select-none ${headerPointerClass}`}
                   onClick={() =>
-                    setExpanded((prev) => (prev === s.slotStart ? null : s.slotStart))
+                    // Only toggle expansion if slot is future OR it's a past slot for today
+                    ( (!isPastSlot || allowExpandForPast) &&
+                      setExpanded((prev) => (prev === s.slotStart ? null : s.slotStart))
+                    )
                   }
                 >
-
                   <div className="text-lg font-semibold text-white">
                     {format(start, "hh:mm a")} – {format(end, "hh:mm a")}
                   </div>
@@ -124,8 +139,11 @@ export default function FullDayView() {
                   )}
                 </div>
 
-                {/* EXPANDED SECTION (only for future slots) */}
-                {isExpanded && s.bookingsCount > 0 && !isPastSlot && (
+                {/* EXPANDED SECTION
+                    - Shows for future slots normally
+                    - Also shows for past slots only when selected date is today
+                */}
+                {isExpanded && s.bookingsCount > 0 && ( !isPastSlot || allowExpandForPast ) && (
                   <div className="mt-3 bg-slate-900 p-3 rounded border border-slate-700">
                     <div className="font-semibold mb-2 text-white">
                       Booked Students:
@@ -150,8 +168,8 @@ export default function FullDayView() {
                             {b.duration === 60
                               ? "1 hour"
                               : b.duration === 30
-                                ? "30 minutes"
-                                : `${b.duration} minutes`}
+                              ? "30 minutes"
+                              : `${b.duration} minutes`}
                           </span>
                         </div>
                       </div>
