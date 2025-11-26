@@ -1,7 +1,11 @@
+// client/src/pages/Auth.jsx
 import React, { useState } from "react";
 import API from "../services/api";
 import { useNavigate } from "react-router-dom";
 
+// ------------------------------
+// Floating Input Component
+// ------------------------------
 function FloatingInput({
   id,
   label,
@@ -55,6 +59,9 @@ function FloatingInput({
   );
 }
 
+// ------------------------------
+// MAIN AUTH COMPONENT
+// ------------------------------
 export default function Auth() {
   const navigate = useNavigate();
 
@@ -79,6 +86,9 @@ export default function Auth() {
     setMode(m);
   };
 
+  // ------------------------------
+  // SIGNUP VALIDATION
+  // ------------------------------
   const validateSignup = () => {
     if (!/^[A-Za-z ]+$/.test(form.name)) {
       setError("Full Name must contain only letters.");
@@ -98,6 +108,9 @@ export default function Auth() {
     return true;
   };
 
+  // ------------------------------
+  // SUBMIT HANDLER
+  // ------------------------------
   const submit = async (e) => {
     e.preventDefault();
     setError("");
@@ -125,7 +138,11 @@ export default function Auth() {
 
       const res = await API.post("/auth/signup", form);
 
-      navigate(`/verify-otp?userId=${res.data.userId}&email=${encodeURIComponent(res.data.email)}`);
+      navigate(
+        `/verify-otp?userId=${res.data.userId}&email=${encodeURIComponent(
+          res.data.email
+        )}`
+      );
 
     } catch (err) {
       setError(err.response?.data?.msg || "Something went wrong");
@@ -139,12 +156,14 @@ export default function Auth() {
       <div className="w-full max-w-2xl">
         <div className="bg-slate-900/60 rounded-2xl p-8 shadow-2xl border border-slate-700">
 
-          {/* Toggle */}
+          {/* Toggle Buttons */}
           <div className="flex mb-6">
             <button
               onClick={() => switchMode("login")}
               className={`flex-1 py-2 text-lg font-bold rounded-l-xl ${
-                mode === "login" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"
+                mode === "login"
+                  ? "bg-cyan-600 text-white"
+                  : "bg-slate-700 text-slate-300"
               }`}
             >
               Login
@@ -153,7 +172,9 @@ export default function Auth() {
             <button
               onClick={() => switchMode("signup")}
               className={`flex-1 py-2 text-lg font-bold rounded-r-xl ${
-                mode === "signup" ? "bg-cyan-600 text-white" : "bg-slate-700 text-slate-300"
+                mode === "signup"
+                  ? "bg-cyan-600 text-white"
+                  : "bg-slate-700 text-slate-300"
               }`}
             >
               Signup
@@ -170,6 +191,7 @@ export default function Auth() {
             </div>
           )}
 
+          {/* Form */}
           <form onSubmit={submit} className="space-y-5">
 
             {/* Signup Extra Fields */}
@@ -199,6 +221,7 @@ export default function Auth() {
               </div>
             )}
 
+            {/* Email + Password */}
             <FloatingInput
               id="email"
               label="Email Address"
@@ -217,6 +240,16 @@ export default function Auth() {
               required
               showTogglePassword
             />
+
+            {/* Forgot Password Link */}
+            {mode === "login" && (
+              <p
+                className="text-cyan-400 text-sm text-center cursor-pointer mt-2 hover:underline"
+                onClick={() => navigate("/forgot-password")}
+              >
+                Forgot Password?
+              </p>
+            )}
 
             <button
               type="submit"

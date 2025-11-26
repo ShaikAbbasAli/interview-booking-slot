@@ -18,29 +18,27 @@ function parseLocal(dt) {
 }
 
 /* ---------------------------- Modal ---------------------------- */
-function NeonModal({ show, message, onConfirm }) {
+function NeonModal({ show, message, onAction }) {
   if (!show) return null;
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 animate-fadeIn">
       <div className="bg-slate-900 border border-cyan-400/40 rounded-2xl p-6 w-80 text-center shadow-[0_0_25px_rgba(0,255,255,0.7)] animate-scaleIn">
-        <div className="text-cyan-300 text-xl font-bold mb-3">
-          ⚠️ Confirmation
-        </div>
+        <div className="text-cyan-300 text-xl font-bold mb-3">⚠️ Confirmation</div>
 
         <div className="text-slate-200 mb-6">{message}</div>
 
         <div className="flex justify-center gap-3">
           <button
-            onClick={onConfirm}
-            className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-500 shadow-[0_0_12px_rgba(255,0,0,0.5)]"
+            onClick={() => onAction(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-500 shadow-[0_0_12px_rgba(255,0,0,0.5)] cursor-pointer"
           >
             Yes
           </button>
 
           <button
-            onClick={() => onConfirm(null)}
-            className="px-4 py-2 bg-slate-600 text-white rounded-xl hover:bg-slate-500"
+            onClick={() => onAction(false)}
+            className="px-4 py-2 bg-slate-600 text-white rounded-xl hover:bg-slate-500 cursor-pointer"
           >
             No
           </button>
@@ -87,14 +85,18 @@ export default function MyBookings() {
     setFiltered(list);
   }, [selectedDate, allBookings]);
 
-  // Confirm delete
-  async function confirmDelete(id) {
-    if (!id) {
+  /* ------------------ Confirm Delete Handler (Fixed) ------------------ */
+  async function confirmDelete(yes) {
+    if (!yes) {
       setModal({ show: false, bookingId: null });
       return;
     }
 
+    const id = modal.bookingId;
+    if (!id) return;
+
     await API.delete(`/bookings/${id}/student`);
+
     setModal({ show: false, bookingId: null });
     loadBookings();
   }
@@ -104,10 +106,11 @@ export default function MyBookings() {
 
   return (
     <>
+      {/* Confirmation Modal */}
       <NeonModal
         show={modal.show}
         message="Are you sure you want to cancel this booking?"
-        onConfirm={confirmDelete}
+        onAction={confirmDelete}
       />
 
       <div className="p-6">
@@ -140,12 +143,7 @@ export default function MyBookings() {
               const start = parseLocal(b.slotStart);
               const end = parseLocal(b.slotEnd);
 
-              const bookingDate = new Date(
-                start.getFullYear(),
-                start.getMonth(),
-                start.getDate()
-              );
-
+              const bookingDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
               const isPast = bookingDate < today;
 
               return (
@@ -158,8 +156,7 @@ export default function MyBookings() {
                   </div>
 
                   <div className="mt-1">
-                    <b>Time:</b> {format(start, "hh:mm a")} –{" "}
-                    {format(end, "hh:mm a")}
+                    <b>Time:</b> {format(start, "hh:mm a")} – {format(end, "hh:mm a")}
                   </div>
 
                   <div className="mt-1">

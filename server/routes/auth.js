@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
-import { sendOTPEmail } from '../utils/mailer.js';
+import { sendOTPEmail, sendResetPasswordEmail } from '../utils/mailer.js';
 
 const router = express.Router();
 
@@ -217,5 +217,51 @@ router.get('/me', auth, async (req, res) => {
     res.status(500).json({ msg: 'Server error' });
   }
 });
+
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user)
+    return res.status(400).json({ msg: "Email not found" });
+
+  // Generate OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  user.otp = otp;
+  user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min expiry
+  await user.save();
+
+  await sendResetPasswordEmail(email, otp);
+
+  res.json({ msg: "Password reset OTP sent to email", userId: user._id });
+});
+
+
+router.post("/reset-password", async (req, res) => {
+  const { userId, otp, newPassword } = req.body;
+
+  const user = await User.findById(userId);
+  if (!user) return res.status(400).json({ msg: "User not found" });
+
+  if (!user.otp || !user.otpExpires)
+    return res.status(400).json({ msg: "No reset request found" });
+
+  if (new Date() > user.otpExpires)
+    return res.status(400).json({ msg: "OTP expired" });
+
+  if (otp !== user.otp)
+    return res.status(400).json({ msg: "Invalid OTP" });
+
+  // Update password
+  user.password = await bcrypt.hash(newPassword, 10);
+  user.otp = null;
+  user.otpExpires = null;
+  await user.save();
+
+  res.json({ msg: "Password reset successfully" });
+});
+
+
 
 export default router;

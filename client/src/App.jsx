@@ -1,48 +1,67 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+// client/src/App.jsx
+import { Routes, Route, Navigate } from "react-router-dom";
+
 import Auth from "./pages/Auth";
-import Dashboard from './pages/StudentDashboard';
-import BookInterview from './pages/BookingInterviewSlot';
-import MyBookings from './pages/MyBookings';
-import FullDayView from './pages/FullDayView';
-import Navbar from './components/Navbar';
-import ProtectedRoute from './components/ProtectedRoute';
+import Dashboard from "./pages/StudentDashboard";
+import BookInterview from "./pages/BookingInterviewSlot";
+import MyBookings from "./pages/MyBookings";
+import FullDayView from "./pages/FullDayView";
+import TodayBookings from "./pages/TodayBookings";
+
+import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import VerifyOTP from "./pages/VerifyOTP";
 import AdminStudents from "./pages/AdminDashboard";
 import EditBooking from "./pages/EditBooking";
 import NotFound from "./pages/NotFound";
-import TodayBookings from "./pages/TodayBookings";
+
+// NEW FILES (Forgot + Reset)
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 export default function App() {
+  const token = localStorage.getItem("token");
+  const savedUser = token ? JSON.parse(localStorage.getItem("user")) : null;
+
   return (
     <div
-  className="min-h-screen pt-24 px-6 bg-linear-to-br from-slate-900/80 via-slate-800/80 to-slate-900/80 text-white overflow-hidden bg-cover bg-center"
-  style={{
-    backgroundImage:
-      "url('https://i.postimg.cc/vmXGMpr3/Aikya-AI.png')",
-    backgroundBlendMode: "overlay"
-  }}
->
+      className="min-h-screen pt-24 px-6 
+      bg-linear-to-br from-slate-900/80 via-slate-800/80 to-slate-900/80 
+      text-white overflow-hidden bg-cover bg-center"
+      style={{
+        backgroundImage: "url('https://i.postimg.cc/vmXGMpr3/Aikya-AI.png')",
+        backgroundBlendMode: "overlay",
+      }}
+    >
       <Navbar />
+
       <div className="max-w-4xl mx-auto">
         <Routes>
-
-          {/* AUTH PAGE */}
+          {/* ---------------- AUTH PAGE ---------------- */}
           <Route
             path="/auth"
             element={
-              localStorage.getItem("token")
-                ? (
-                  JSON.parse(localStorage.getItem("user")).role === "admin"
-                    ? <Navigate to="/admin/students" replace />
-                    : <Navigate to="/dashboard" replace />
+              token ? (
+                savedUser?.role === "admin" ? (
+                  <Navigate to="/admin/students" replace />
+                ) : (
+                  <Navigate to="/dashboard" replace />
                 )
-                : <Auth />
+              ) : (
+                <Auth />
+              )
             }
           />
 
+          {/* Default redirect */}
           <Route path="/" element={<Navigate to="/auth" replace />} />
 
-          {/* STUDENT ROUTES */}
+          {/* ---------------- FORGOT PASSWORD ---------------- */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* ---------------- STUDENT ROUTES ---------------- */}
           <Route
             path="/dashboard"
             element={
@@ -79,7 +98,7 @@ export default function App() {
             }
           />
 
-          {/* ADMIN ROUTES */}
+          {/* ---------------- ADMIN ROUTES ---------------- */}
           <Route
             path="/admin/students"
             element={
@@ -89,7 +108,7 @@ export default function App() {
             }
           />
 
-          {/* SHARED */}
+          {/* ---------------- SHARED ROUTES ---------------- */}
           <Route
             path="/fullday"
             element={
@@ -108,10 +127,11 @@ export default function App() {
             }
           />
 
-          {/* NOT FOUND */}
-          <Route path="*" element={<NotFound />} />
+          {/* ---------------- OTP VERIFY ---------------- */}
           <Route path="/verify-otp" element={<VerifyOTP />} />
 
+          {/* ---------------- NOT FOUND ---------------- */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </div>
