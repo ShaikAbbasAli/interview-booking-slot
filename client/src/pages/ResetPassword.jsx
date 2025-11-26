@@ -11,6 +11,7 @@ export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // 👈 NEW
 
   async function submit(e) {
     e.preventDefault();
@@ -18,7 +19,7 @@ export default function ResetPassword() {
     setMsg("");
 
     try {
-      const res = await API.post("/auth/reset-password", {
+      await API.post("/auth/reset-password", {
         userId,
         otp,
         newPassword,
@@ -42,20 +43,36 @@ export default function ResetPassword() {
         <input
           type="text"
           placeholder="Enter OTP"
+          required
           className="w-full p-3 bg-slate-800 rounded mb-3"
           value={otp}
           onChange={(e) => setOtp(e.target.value)}
         />
 
-        <input
-          type="password"
-          placeholder="New Password"
-          className="w-full p-3 bg-slate-800 rounded mb-3"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
+        {/* Password Input with Show/Hide */}
+        <div className="relative mb-3">
+          <input
+            type={showPassword ? "text" : "password"} // 👈 Toggle
+            placeholder="New Password"
+            required
+            className="w-full p-3 bg-slate-800 rounded"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
 
-        <button className="w-full py-2 bg-cyan-600 rounded">Reset Password</button>
+          {/* Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-3 text-gray-300"
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
+
+        <button className="w-full py-2 bg-cyan-600 rounded cursor-pointer">
+          Reset Password
+        </button>
       </form>
     </div>
   );

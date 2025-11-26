@@ -103,15 +103,12 @@ export default function FullDayView() {
               >
                 {/* HEADER */}
                 <div
-                  className={`cursor-pointer select-none ${
-                    isPastSlot ? "pointer-events-none" : ""
-                  }`}
+                  className="cursor-pointer select-none"
                   onClick={() =>
-                    setExpanded((prev) =>
-                      prev === s.slotStart ? null : s.slotStart
-                    )
+                    setExpanded((prev) => (prev === s.slotStart ? null : s.slotStart))
                   }
                 >
+
                   <div className="text-lg font-semibold text-white">
                     {format(start, "hh:mm a")} – {format(end, "hh:mm a")}
                   </div>
@@ -153,8 +150,8 @@ export default function FullDayView() {
                             {b.duration === 60
                               ? "1 hour"
                               : b.duration === 30
-                              ? "30 minutes"
-                              : `${b.duration} minutes`}
+                                ? "30 minutes"
+                                : `${b.duration} minutes`}
                           </span>
                         </div>
                       </div>

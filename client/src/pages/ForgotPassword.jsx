@@ -38,7 +38,7 @@ export default function ForgotPassword() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <button className="w-full py-2 bg-cyan-600 rounded">Send OTP</button>
+        <button className="w-full py-2 bg-cyan-600 rounded cursor-pointer">Send OTP</button>
       </form>
     </div>
   );
