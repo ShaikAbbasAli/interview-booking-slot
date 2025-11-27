@@ -1,30 +1,42 @@
 import mongoose from "mongoose";
+import { ALL_DESKS } from "../config.js";
 
 const BookingSchema = new mongoose.Schema({
-  student: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  student: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 
   slotStart: { type: Date, required: true },
   slotEnd: { type: Date, required: true },
 
-  // Company type (MNC / Mid Range / Startup)
   company: {
     type: String,
     required: true,
     maxlength: 25,
   },
 
-  // Round (L1, L2, L3, Manager, Client, HR)
   round: {
     type: String,
     required: true,
     maxlength: 25,
   },
 
-  // Technology (Python, DevOps, ...)
   technology: {
     type: String,
     required: true,
     maxlength: 50,
+  },
+
+  // Dynamic desk validation
+  desk: {
+    type: String,
+    required: true,
+    validate: {
+      validator: (v) => ALL_DESKS.includes(v),
+      message: (props) => `${props.value} is not a valid desk`,
+    },
   },
 
   approved: { type: Boolean, default: false },

@@ -152,16 +152,37 @@ router.post('/verify-otp', async (req, res) => {
     if (!user) return res.status(404).json({ msg: 'User not found' });
     if (user.emailVerified) return res.status(400).json({ msg: 'Email already verified' });
 
-    if (!user.otp || !user.otpExpires) return res.status(400).json({ msg: 'No OTP requested' });
-    if (new Date() > user.otpExpires) return res.status(400).json({ msg: 'OTP expired' });
-    if (otp !== user.otp) return res.status(400).json({ msg: 'Invalid OTP' });
+    if (!user.otp || !user.otpExpires)
+      return res.status(400).json({ msg: 'No OTP requested' });
 
+    if (new Date() > user.otpExpires)
+      return res.status(400).json({ msg: 'OTP expired' });
+
+    if (otp !== user.otp)
+      return res.status(400).json({ msg: 'Invalid OTP' });
+
+    // ---------------------------
+    // ⭐ Generate sequential employee_id
+    // ---------------------------
+    const count = await User.countDocuments({
+      role: "student",
+      emailVerified: true
+    });
+
+    const nextNumber = String(count + 1).padStart(4, "0");
+    const newID = `AIKYA-STU-${nextNumber}`;
+
+    // ---------------------------
+    // Update user final details
+    // ---------------------------
     user.emailVerified = true;
+    user.isTemp = false;
     user.otp = null;
     user.otpExpires = null;
+    user.employee_id = newID;
+
     await user.save();
 
-    // ⭐ AUTO LOGIN AFTER VERIFY ⭐
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
 
     return res.json({
@@ -175,6 +196,7 @@ router.post('/verify-otp', async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 
 // LOGIN (unchanged) — only allow if emailVerified === true
 // LOGIN – return clear message for wrong email or password

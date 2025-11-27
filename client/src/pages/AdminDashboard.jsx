@@ -46,7 +46,7 @@ export default function AdminStudents() {
   /* Modal State */
   const [modal, setModal] = useState({
     show: false,
-    type: null,      // "approve" | "remove"
+    type: null,
     studentId: null,
   });
 
@@ -71,13 +71,16 @@ export default function AdminStudents() {
   /* SEARCH LOGIC */
   useEffect(() => {
     const s = search.toLowerCase();
+
     setFiltered(
       students.filter(
         (st) =>
           st.name.toLowerCase().includes(s) ||
+          st.employee_id?.toLowerCase().includes(s) ||
           st.course?.toLowerCase().includes(s)
       )
     );
+
     setPage(1);
   }, [search, students]);
 
@@ -110,7 +113,6 @@ export default function AdminStudents() {
 
   return (
     <>
-      {/* ------- Neon Modal ------- */}
       <NeonModal
         show={modal.show}
         message={
@@ -129,7 +131,7 @@ export default function AdminStudents() {
         {/* SEARCH BAR */}
         <input
           type="text"
-          placeholder="Search by name or course..."
+          placeholder="Search by name, employee ID or course..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full p-2 mb-4 bg-slate-800 border border-slate-600 rounded text-white"
@@ -145,6 +147,7 @@ export default function AdminStudents() {
                 <tr>
                   <th className="p-3 w-20 text-center">#</th>
                   <th className="p-3">Student Name</th>
+                  <th className="p-3">Employee ID</th>
                   <th className="p-3">Course</th>
                   <th className="p-3">Status</th>
                   <th className="p-3 text-center">Actions</th>
@@ -161,6 +164,10 @@ export default function AdminStudents() {
                     <td className="p-3">
                       <div className="font-semibold text-white">{s.name}</div>
                       <div className="text-slate-400 text-xs">{s.email}</div>
+                    </td>
+
+                    <td className="p-3 font-mono text-cyan-300">
+                      {s.employee_id || "-"}
                     </td>
 
                     <td className="p-3">{s.course || "-"}</td>
@@ -211,7 +218,7 @@ export default function AdminStudents() {
 
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="text-center p-4 text-slate-400">
+                    <td colSpan="6" className="text-center p-4 text-slate-400">
                       No matching students found.
                     </td>
                   </tr>

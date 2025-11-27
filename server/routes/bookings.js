@@ -1,27 +1,28 @@
 import express from "express";
 import auth from "../middleware/auth.js";
 import Booking from "../models/Booking.js";
+import { ALL_DESKS } from "../config.js";
 
 const router = express.Router();
 
 /* ---------------------------------------------------------
-   IST <-> UTC HELPERS
+   CONSTANTS & HELPERS (IST <-> UTC)
 --------------------------------------------------------- */
 
 const IST_OFFSET = 5.5 * 60 * 60 * 1000;
 const pad = (n) => String(n).padStart(2, "0");
 
-/* Convert IST string -> UTC Date */
+/* Convert IST string (YYYY-MM-DDTHH:mm) -> UTC Date */
 function istStringToUTC(iso) {
   const [datePart, timePart] = iso.split("T");
   const [y, m, d] = datePart.split("-").map(Number);
   const [hh, mm] = timePart.split(":").map(Number);
 
-  const fakeUTC = new Date(Date.UTC(y, m - 1, d, hh, mm));
-  return new Date(fakeUTC.getTime() - IST_OFFSET);
+  const utcFake = new Date(Date.UTC(y, m - 1, d, hh, mm));
+  return new Date(utcFake.getTime() - IST_OFFSET);
 }
 
-/* Convert UTC Date -> IST "YYYY-MM-DDTHH:mm" */
+/* Convert UTC -> "YYYY-MM-DDTHH:mm" (IST) */
 function toISTString(dateUTC) {
   const ms = dateUTC.getTime() + IST_OFFSET;
   const ist = new Date(ms);
@@ -39,25 +40,25 @@ function toISTString(dateUTC) {
   );
 }
 
-/* Midnight of IST day in UTC */
+/* Get IST day's 00:00 UTC start & end */
 function dayStartEndIST(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
 
-  const fakeUTC = new Date(Date.UTC(y, m - 1, d, 0, 0));
-  const start = new Date(fakeUTC.getTime() - IST_OFFSET);
+  const fake = new Date(Date.UTC(y, m - 1, d, 0, 0));
+  const start = new Date(fake.getTime() - IST_OFFSET);
   const end = new Date(start.getTime() + 86400000);
 
   return { start, end };
 }
 
-/* Check alignment (:00 or :30) in IST */
+/* Check if minute is :00 or :30 */
 function isAlignedTo30IST(dateUTC) {
   const t = new Date(dateUTC.getTime() + IST_OFFSET);
   const mins = t.getUTCMinutes();
   return mins === 0 || mins === 30;
 }
 
-/* Check working hours (9 AM – 24:00 IST) */
+/* 9 AM–12 AM working hour check */
 function inWorkingHoursIST(dateUTC) {
   const t = new Date(dateUTC.getTime() + IST_OFFSET);
   const mins = t.getUTCHours() * 60 + t.getUTCMinutes();
@@ -65,7 +66,7 @@ function inWorkingHoursIST(dateUTC) {
 }
 
 /* ---------------------------------------------------------
-   GET /bookings/me
+   GET /bookings/me – Student's bookings
 --------------------------------------------------------- */
 router.get("/me", auth, async (req, res) => {
   try {
@@ -80,13 +81,13 @@ router.get("/me", auth, async (req, res) => {
     }));
 
     res.json(mapped);
-  } catch (err) {
+  } catch {
     res.status(500).json({ msg: "Server error" });
   }
 });
 
 /* ---------------------------------------------------------
-   GET /bookings/today  (IST Today)
+   GET /bookings/today (IST)
 --------------------------------------------------------- */
 router.get("/today", auth, async (req, res) => {
   try {
@@ -101,27 +102,22 @@ router.get("/today", auth, async (req, res) => {
       slotStart: { $lt: end },
       slotEnd: { $gt: start },
     })
-      .populate("student", "name")
+      .populate("student", "name employee_id")
       .sort({ slotStart: 1 })
       .lean();
 
-    const mapped = bookings.map((b) => {
-      const s = new Date(b.slotStart);
-      const e = new Date(b.slotEnd);
-      const durationMin = (e - s) / 60000;
-
-      return {
-        _id: b._id,
-        studentName: b.student?.name || "N/A",
-        company: b.company,
-        round: b.round,
-        technology: b.technology,
-        slotStart: toISTString(s),
-        slotEnd: toISTString(e),
-        duration: durationMin,
-        createdAt: toISTString(new Date(b.createdAt)),
-      };
-    });
+    const mapped = bookings.map((b) => ({
+      _id: b._id,
+      studentName: b.student?.name || "N/A",
+      employee_id: b.student?.employee_id || "-",
+      company: b.company,
+      round: b.round,
+      technology: b.technology,
+      slotStart: toISTString(new Date(b.slotStart)),
+      slotEnd: toISTString(new Date(b.slotEnd)),
+      createdAt: toISTString(new Date(b.createdAt)),
+      duration: (new Date(b.slotEnd) - new Date(b.slotStart)) / 60000,
+    }));
 
     res.json(mapped);
   } catch {
@@ -134,46 +130,30 @@ router.get("/today", auth, async (req, res) => {
 --------------------------------------------------------- */
 router.get("/by-date", auth, async (req, res) => {
   try {
-    const todayIST = new Date(Date.now() + IST_OFFSET);
-    const defaultDate = todayIST.toISOString().split("T")[0];
+    const dateStr = req.query.date;
 
-    const dateStr = req.query.date || defaultDate;
-
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const midnightUTC = new Date(Date.UTC(y, m - 1, d, 0, 0));
-    const dayStartUTC = new Date(midnightUTC.getTime() - IST_OFFSET);
-    const dayEndUTC = new Date(dayStartUTC.getTime() + 86400000);
+    const { start, end } = dayStartEndIST(dateStr);
 
     const bookings = await Booking.find({
-      slotStart: { $lt: dayEndUTC },
-      slotEnd: { $gt: dayStartUTC },
+      slotStart: { $lt: end },
+      slotEnd: { $gt: start },
     })
-      .populate("student", "name")
+      .populate("student", "name employee_id")
       .lean();
 
-    const list = bookings.map((b) => {
-      const durationMin =
-        (new Date(b.slotEnd) - new Date(b.slotStart)) / 60000;
-
-      return {
-        _id: b._id,
-        studentName: b.student?.name || "Unknown",
-        slotStart: toISTString(new Date(b.slotStart)),
-        slotEnd: toISTString(new Date(b.slotEnd)),
-        createdAt: toISTString(new Date(b.createdAt)),
-        duration: durationMin,
-        company: b.company,
-        round: b.round,
-        technology: b.technology,
-      };
-    });
-
-    list.sort(
-      (a, b) =>
-        new Date(a.slotStart.replace(" ", "T")) -
-        new Date(b.slotStart.replace(" ", "T"))
-    );
-
+    const list = bookings.map((b) => ({
+      _id: b._id,
+      studentName: b.student?.name || "Unknown",
+      employee_id: b.student?.employee_id || "-",
+      slotStart: toISTString(new Date(b.slotStart)),
+      slotEnd: toISTString(new Date(b.slotEnd)),
+      createdAt: toISTString(new Date(b.createdAt)),
+      duration: (new Date(b.slotEnd) - new Date(b.slotStart)) / 60000,
+      company: b.company,
+      round: b.round,
+      technology: b.technology,
+      desk: b.desk || "-",     // ✅ ADDED THIS
+    }));
     res.json(list);
   } catch {
     res.status(500).json({ msg: "Server error" });
@@ -181,48 +161,50 @@ router.get("/by-date", auth, async (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   GET /bookings/slots (Full-day windows)
+   GET /bookings/slots – Full day windows (FullDayView)
 --------------------------------------------------------- */
 router.get("/slots", auth, async (req, res) => {
   try {
     const { date } = req.query;
     if (!date) return res.status(400).json({ msg: "Date required" });
 
-    if (req.user.role === "student" && req.user.status !== "approved") {
+    if (req.user.role === "student" && req.user.status !== "approved")
       return res.status(403).json({ msg: "Account not approved" });
-    }
 
     const { start: dayStartUTC } = dayStartEndIST(date);
 
+    /* Build 30-minute windows (9 AM – 12 AM IST) */
     const slots = [];
     const startUTC = new Date(dayStartUTC.getTime() + 9 * 3600000);
     const endUTC = new Date(dayStartUTC.getTime() + 24 * 3600000);
 
-    let curUTC = startUTC;
+    let cur = startUTC;
 
-    while (curUTC < endUTC) {
-      const next = new Date(curUTC.getTime() + 30 * 60000);
+    while (cur < endUTC) {
+      const next = new Date(cur.getTime() + 30 * 60000);
       if (next > endUTC) break;
 
       slots.push({
-        slotStart: toISTString(curUTC),
+        slotStart: toISTString(cur),
         slotEnd: toISTString(next),
         bookingsCount: 0,
         bookings: [],
       });
 
-      curUTC = next;
+      cur = next;
     }
 
+    /* Fetch all bookings overlapping this day */
     const { start: rangeStart, end: rangeEnd } = dayStartEndIST(date);
 
     const bookings = await Booking.find({
       slotStart: { $lt: rangeEnd },
       slotEnd: { $gt: rangeStart },
     })
-      .populate("student", "name course")
+      .populate("student", "name course employee_id")
       .lean();
 
+    /* Assign bookings to windows */
     for (const slot of slots) {
       const wsUTC = istStringToUTC(slot.slotStart);
       const weUTC = istStringToUTC(slot.slotEnd);
@@ -234,19 +216,16 @@ router.get("/slots", auth, async (req, res) => {
       );
 
       slot.bookingsCount = overlapping.length;
-      slot.bookings = overlapping.map((b) => {
-        const durationMin =
-          (new Date(b.slotEnd) - new Date(b.slotStart)) / 60000;
-
-        return {
-          _id: b._id,
-          student: b.student,
-          company: b.company,
-          round: b.round,
-          technology: b.technology,
-          duration: durationMin,
-        };
-      });
+      slot.bookings = overlapping.map((b) => ({
+        _id: b._id,
+        student: b.student,
+        company: b.company,
+        round: b.round,
+        technology: b.technology,
+        desk: b.desk, // 🔥 REQUIRED FOR FULL DAY VIEW
+        duration:
+          (new Date(b.slotEnd) - new Date(b.slotStart)) / 60000,
+      }));
     }
 
     res.json(slots);
@@ -255,69 +234,78 @@ router.get("/slots", auth, async (req, res) => {
   }
 });
 
+router.get("/available-desks", auth, async (req, res) => {
+  try {
+    const { date, start, duration } = req.query;
+
+    if (!date || !start || !duration)
+      return res.status(400).json({ msg: "Missing parameters" });
+
+    const sUTC = istStringToUTC(`${date}T${start}`);
+    const eUTC = new Date(sUTC.getTime() + Number(duration) * 60000);
+
+    const overlaps = await Booking.find({
+      slotStart: { $lt: eUTC },
+      slotEnd: { $gt: sUTC },
+    }).lean();
+
+    const booked = overlaps.map((b) => b.desk);
+
+    const free = ALL_DESKS.filter((d) => !booked.includes(d));
+
+    return res.json({ available: free });
+  } catch (err) {
+    return res.status(500).json({ msg: "Server error" });
+  }
+});
+
 /* ---------------------------------------------------------
-   POST /bookings — Create Booking
+   POST /bookings – Create Booking
 --------------------------------------------------------- */
 router.post("/", auth, async (req, res) => {
   try {
-    const { slotStart, slotEnd, company, round, technology } = req.body;
+    const { slotStart, slotEnd, company, round, technology, desk } = req.body;
 
-    if (!slotStart || !slotEnd || !company || !round || !technology)
+    if (!slotStart || !slotEnd || !company || !round || !technology || !desk)
       return res.status(400).json({ msg: "Missing fields" });
+
+    if (!ALL_DESKS.includes(desk))
+      return res.status(400).json({ msg: "Invalid desk selected" });
 
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
 
-    const nowIST = new Date(Date.now() + IST_OFFSET);
-    const sIST = new Date(s.getTime() + IST_OFFSET);
-
-    if (sIST < nowIST)
-      return res.status(400).json({ msg: "Cannot book past slots." });
-
-    if (e <= s)
-      return res.status(400).json({ msg: "End must be after start" });
+    if (e <= s) return res.status(400).json({ msg: "End must be after start" });
 
     if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e))
-      return res.status(400).json({ msg: "Times must align (:00/:30)" });
+      return res.status(400).json({ msg: "Time must be :00 or :30" });
 
     if (!inWorkingHoursIST(s) || !inWorkingHoursIST(new Date(e - 1)))
-      return res.status(400).json({ msg: "Outside 9 AM – 12 AM limit" });
+      return res.status(400).json({ msg: "Outside working hours" });
 
-    const dateIST = slotStart.slice(0, 10);
-    const { start, end } = dayStartEndIST(dateIST);
-
-    const todaysCount = await Booking.countDocuments({
-      student: req.user._id,
-      slotStart: { $gte: start, $lt: end },
+    // Check desk overlap
+    const deskOverlap = await Booking.findOne({
+      desk,
+      slotStart: { $lt: e },
+      slotEnd: { $gt: s },
     });
 
-    if (todaysCount >= 5)
-      return res.status(400).json({ msg: "Daily limit 5 reached" });
-
-    const windows = [];
-    let cur = new Date(s);
-    while (cur < e) {
-      let next = new Date(cur.getTime() + 30 * 60000);
-      windows.push({ start: cur, end: next });
-      cur = next;
-    }
-
-    for (const w of windows) {
-      const c = await Booking.countDocuments({
-        slotStart: { $lt: w.end },
-        slotEnd: { $gt: w.start },
+    if (deskOverlap)
+      return res.status(400).json({
+        msg: `Desk ${desk} is already booked for this time`,
       });
-      if (c >= 6) {
-        const ist = new Date(w.start.getTime() + IST_OFFSET);
-        return res.status(409).json({
-          msg: `Window full: ${ist.toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })}`,
-        });
-      }
-    }
+
+    // Check student overlap
+    const studentOverlap = await Booking.findOne({
+      student: req.user._id,
+      slotStart: { $lt: e },
+      slotEnd: { $gt: s },
+    });
+
+    if (studentOverlap)
+      return res.status(400).json({
+        msg: "You already have a booking in this time window",
+      });
 
     const booking = await Booking.create({
       student: req.user._id,
@@ -326,16 +314,17 @@ router.post("/", auth, async (req, res) => {
       company,
       round,
       technology,
+      desk,
     });
 
-    res.status(201).json(booking);
+    return res.status(201).json(booking);
   } catch {
-    res.status(500).json({ msg: "Server error" });
+    return res.status(500).json({ msg: "Server error" });
   }
 });
 
 /* ---------------------------------------------------------
-   PUT /bookings/:id — Edit
+   PUT /bookings/:id – Edit
 --------------------------------------------------------- */
 router.put("/:id", auth, async (req, res) => {
   try {
@@ -388,7 +377,7 @@ router.delete("/:id/student", auth, async (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   DELETE /bookings/:id  (Admin)
+   DELETE /bookings/:id (Admin)
 --------------------------------------------------------- */
 router.delete("/:id", auth, async (req, res) => {
   try {

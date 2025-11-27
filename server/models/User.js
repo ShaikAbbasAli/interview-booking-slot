@@ -18,8 +18,13 @@ const UserSchema = new mongoose.Schema(
 
     phone: String,
     course: String,
-
     password: { type: String, required: true },
+
+    employee_id: {
+      type: String,
+      unique: true,
+      sparse: true, // allow null before OTP verification
+    },
 
     role: {
       type: String,
@@ -40,13 +45,10 @@ const UserSchema = new mongoose.Schema(
 
     otp: String,
     otpExpires: Date,
+    otpRequests: { type: [Date], default: [] },
 
-    // ✅ FIXED — required for resend OTP
-    otpRequests: {
-      type: [Date],
-      default: []
-    }
-
+    // ⭐ New field — User stored but not fully active yet
+    isTemp: { type: Boolean, default: true }
   },
   { timestamps: true }
 );

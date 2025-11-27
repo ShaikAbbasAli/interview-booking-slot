@@ -85,7 +85,7 @@ export default function MyBookings() {
     setFiltered(list);
   }, [selectedDate, allBookings]);
 
-  /* ------------------ Confirm Delete Handler (Fixed) ------------------ */
+  /* ------------------ Confirm Delete Handler ------------------ */
   async function confirmDelete(yes) {
     if (!yes) {
       setModal({ show: false, bookingId: null });
@@ -118,7 +118,9 @@ export default function MyBookings() {
 
         {/* DATE PICKER */}
         <div className="mb-4">
-          <label className="text-sm text-slate-300 block mb-1 font-bold">Select Date</label>
+          <label className="text-sm text-slate-300 block mb-1 font-bold">
+            Select Date
+          </label>
 
           <div className="relative w-60">
             <input
@@ -169,6 +171,11 @@ export default function MyBookings() {
 
                   <div className="mt-1">
                     <b>Technology:</b> {b.technology}
+                  </div>
+
+                  {/* ✅ NEW: SHOW DESK */}
+                  <div className="mt-1">
+                    <b>Desk:</b> {b.desk || "N/A"}
                   </div>
 
                   <div className="flex gap-3 mt-3">

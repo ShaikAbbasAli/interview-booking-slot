@@ -8,9 +8,18 @@ import User from '../models/User.js';
 const router = express.Router();
 
 // admin: list students
-router.get('/students', auth, role('admin'), async (req, res) => {
-  const students = await User.find({ role: 'student' }).select('-password').lean();
-  res.json(students);
+router.get("/students", auth, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ msg: "Admin only" });
+  }
+
+  const users = await User.find({
+    role: "student",
+    emailVerified: true,   // ⭐ Only verified students
+    isTemp: false          // ⭐ Prevent pending accounts
+  }).select("-password -otp -otpExpires -otpRequests");
+
+  res.json(users);
 });
 
 // admin: approve student
