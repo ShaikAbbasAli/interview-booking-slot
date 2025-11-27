@@ -1,19 +1,13 @@
-// BookInterview.jsx — Updated: prevents loading desks for past date or time
+// BookInterview.jsx — Updated with Confirmation Popup
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 
-/* ------------------------------ *
- *         Helpers
- * ------------------------------ */
+/* ------------------------------ Helpers ------------------------------ */
 const pad = (n) => n.toString().padStart(2, "0");
-
-// Local time builder
 const buildLocal = (y, m, d, hh, mm) => new Date(y, m - 1, d, hh, mm, 0);
 
-/* ------------------------------ *
- *     Static Dropdown Options
- * ------------------------------ */
+/* ------------------------------ Data Lists ------------------------------ */
 const ROUND_OPTIONS = [
   "L1",
   "L2",
@@ -42,40 +36,19 @@ const TECH_OPTIONS = [
   "AI & ML",
 ];
 
-/* ------------------------------ *
- *   Neon Glow Modal Component
- * ------------------------------ */
+/* ------------------------------ Neon Info Modal ------------------------------ */
 function NeonModal({ show, message, onClose }) {
   if (!show) return null;
 
   return (
-    <div
-      className="
-      fixed inset-0 bg-black/70 backdrop-blur-md
-      flex items-center justify-center z-50 animate-fadeIn
-    "
-    >
-      <div
-        className="
-          bg-slate-900 border border-cyan-400/40 rounded-2xl
-          p-6 w-80 text-center
-          shadow-[0_0_25px_rgba(0,255,255,0.7)]
-          animate-scaleIn
-        "
-      >
-        <div className="text-cyan-300 text-xl font-bold mb-2 drop-shadow-lg">
-          ✨ Aikya Info
-        </div>
-
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 animate-fadeIn">
+      <div className="bg-slate-900 border border-cyan-400/40 rounded-2xl p-6 w-80 text-center shadow-lg animate-scaleIn">
+        <div className="text-cyan-300 text-xl font-bold mb-3">✨ Aikya Info</div>
         <div className="text-slate-200 mb-5">{message}</div>
 
         <button
           onClick={onClose}
-          className="
-            px-5 py-2 rounded-xl bg-cyan-600
-            hover:bg-cyan-500 text-white font-semibold
-            shadow-[0_0_15px_rgba(0,255,255,0.6)]
-          "
+          className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-xl text-white shadow"
         >
           OK
         </button>
@@ -84,21 +57,56 @@ function NeonModal({ show, message, onClose }) {
   );
 }
 
-/* ------------------------------ *
- *            MAIN
- * ------------------------------ */
+/* ------------------------------ NEW Confirmation Popup ------------------------------ */
+function ConfirmModal({ show, details, onConfirm, onCancel }) {
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 animate-fadeIn">
+      <div className="bg-slate-900 border border-cyan-400/40 rounded-2xl p-6 w-96 text-center shadow-lg animate-scaleIn">
+        <div className="text-cyan-300 text-xl font-bold mb-3">⚠️ Confirm Booking</div>
+
+        <div className="text-slate-200 mb-4 space-y-1 text-left">
+          <p><b>Date:</b> {details.date}</p>
+          <p><b>Time:</b> {details.time}</p>
+          <p><b>Duration:</b> {details.duration}</p>
+          <p><b>Desk:</b> {details.desk}</p>
+          <p><b>Company:</b> {details.company}</p>
+          <p><b>Round:</b> {details.round}</p>
+          <p><b>Technology:</b> {details.technology}</p>
+        </div>
+
+        <div className="flex justify-center gap-3 mt-4">
+          <button
+            onClick={onConfirm}
+            className="px-5 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-white"
+          >
+            Confirm
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-5 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------ MAIN Component ------------------------------ */
 export default function BookInterview() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* Pre-filled params from FullDayView */
+  /* Prefill from FullDayView */
   const params = new URLSearchParams(location.search);
   const preDate = params.get("date");
   const preStart = params.get("start");
 
   let preHour = null;
   let preMinute = null;
-
   if (preStart) {
     const timePart = preStart.split("T")[1];
     const [hh, mm] = timePart.split(":");
@@ -107,66 +115,58 @@ export default function BookInterview() {
   }
 
   /* Today */
-  const today = new Date();
-  const defaultDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(
-    today.getDate()
+  const now = new Date();
+  const defaultDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+    now.getDate()
   )}`;
 
-  /* State */
+  /* States */
   const [date, setDate] = useState(preDate || defaultDate);
   const [hour, setHour] = useState(preHour || "09");
   const [minute, setMinute] = useState(preMinute || "00");
   const [duration, setDuration] = useState(30);
+
   const [company, setCompany] = useState("");
   const [round, setRound] = useState("");
   const [technology, setTechnology] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  /* NEW: desks */
   const [availableDesks, setAvailableDesks] = useState([]);
   const [desk, setDesk] = useState("");
   const [loadingDesks, setLoadingDesks] = useState(false);
 
-  /* Modal */
+  /* Info Modal */
   const [modal, setModal] = useState({ show: false, message: "" });
   const showModal = (message) => setModal({ show: true, message });
 
+  /* Confirmation Modal */
+  const [confirm, setConfirm] = useState({ show: false, details: null });
+
+  const hours = Array.from({ length: 15 }, (_, i) => i + 9);
+  const minutesArr = ["00", "30"];
   const timeLocked = !!preStart;
 
-  /* Options */
-  const hours = Array.from({ length: 15 }, (_, i) => i + 9); // 9 to 23
-  const minutesArr = ["00", "30"];
-
-  /* ---------------------------------------------------------
-     LOAD AVAILABLE DESKS — Prevent API call for past date/time
-  --------------------------------------------------------- */
+  /* ------------------ Load Available Desks ------------------ */
   useEffect(() => {
     async function loadDesks() {
       setAvailableDesks([]);
       setDesk("");
 
-      if (!date || !hour || !minute || !duration) return;
+      if (!date || !hour || !minute) return;
 
-      // Prevent loading desks for past date/time
       const now = new Date();
       const [Y, M, D] = date.split("-").map(Number);
-      const selectedStart = new Date(Y, M - 1, D, Number(hour), Number(minute));
+      const selectedStart = new Date(Y, M - 1, D, hour, minute);
 
-      if (selectedStart < now) {
-        // Past slots: do NOT load desks
-        setAvailableDesks([]);
-        return;
-      }
+      if (selectedStart < now) return;
 
-      // Fetch desks only for valid future times
       setLoadingDesks(true);
       try {
-        const start = `${pad(Number(hour))}:${pad(Number(minute))}`;
+        const start = `${hour}:${minute}`;
         const res = await API.get(
           `/bookings/available-desks?date=${date}&start=${start}&duration=${duration}`
         );
         setAvailableDesks(res.data.available || []);
-      } catch (err) {
+      } catch {
         setAvailableDesks([]);
       } finally {
         setLoadingDesks(false);
@@ -176,46 +176,39 @@ export default function BookInterview() {
     loadDesks();
   }, [date, hour, minute, duration]);
 
-  /* ------------------------------ *
-   *        SUBMIT HANDLER
-   * ------------------------------ */
-  const submit = async (e) => {
+  /* ------------------ Submit → Trigger Confirm Popup ------------------ */
+  const submit = (e) => {
     e.preventDefault();
 
-    if (!company) return showModal("Please select Company type.");
+    if (!company) return showModal("Please select Company.");
     if (!round) return showModal("Please select Round.");
     if (!technology) return showModal("Please select Technology.");
-    if (!desk) return showModal("Please select an available system.");
+    if (!desk) return showModal("Please select a Desk.");
 
-    setLoading(true);
+    const displayTime = `${hour}:${minute}`;
+    const displayDuration = duration === 60 ? "1 Hour" : "30 Minutes";
 
+    setConfirm({
+      show: true,
+      details: {
+        date,
+        time: displayTime,
+        duration: displayDuration,
+        desk,
+        company,
+        round,
+        technology,
+      },
+    });
+  };
+
+  /* ------------------ Confirm Booking Handler ------------------ */
+  const finalizeBooking = async () => {
     const [Y, M, D] = date.split("-").map(Number);
 
-    const start = buildLocal(Y, M, D, Number(hour), Number(minute));
+    const start = new Date(Y, M - 1, D, hour, minute);
     const end = new Date(start.getTime() + duration * 60000);
 
-    const now = new Date();
-
-    // Date only objects
-    const selectedDateObj = new Date(Y, M - 1, D);
-    const todayDateObj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    if (selectedDateObj < todayDateObj) {
-      setLoading(false);
-      return showModal("Cannot book for past dates.");
-    }
-
-    if (selectedDateObj.getTime() === todayDateObj.getTime() && start < now) {
-      setLoading(false);
-      return showModal("Cannot book a past time.");
-    }
-
-    if (![0, 30].includes(start.getMinutes())) {
-      setLoading(false);
-      return showModal("Time must be at :00 or :30.");
-    }
-
-    // Crossing midnight handling
     let endDateString = date;
     if (end.getDate() !== start.getDate()) {
       const nextDay = new Date(Y, M - 1, D + 1);
@@ -237,41 +230,50 @@ export default function BookInterview() {
         desk,
       });
 
-      showModal(`Slot booked successfully! Desk: ${desk}`);
+      setConfirm({ show: false });
+      showModal(`Slot booked successfully!\nDesk: ${desk}`);
+
       setTimeout(() => navigate("/mybookings"), 800);
     } catch (err) {
+      setConfirm({ show: false });
       showModal(err.response?.data?.msg || "Booking failed.");
-    } finally {
-      setLoading(false);
     }
   };
 
-  /* ------------------------------ *
-   *          JSX OUTPUT
-   * ------------------------------ */
+  /* ------------------------------ JSX ------------------------------ */
   return (
     <>
+      {/* Info Modal */}
       <NeonModal
         show={modal.show}
         message={modal.message}
         onClose={() => setModal({ show: false, message: "" })}
       />
 
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        show={confirm.show}
+        details={confirm.details}
+        onConfirm={finalizeBooking}
+        onCancel={() => setConfirm({ show: false })}
+      />
+
+      {/* FORM */}
       <form
         className="max-w-md mx-auto bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl font-bold"
         onSubmit={submit}
       >
-        <h2 className="text-2xl font-bold text-cyan-400 mb-4">Book Interview</h2>
+        <h2 className="text-2xl text-cyan-400 mb-4">Book Interview</h2>
 
-        {/* Date */}
-        <label className="text-slate-300 font-bold">Select Date</label>
+        {/* DATE */}
+        <label>Select Date</label>
         <input
           type="date"
           value={date}
           min={defaultDate}
           disabled={timeLocked}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full p-2 mb-4 rounded bg-slate-700 text-white"
+          className="w-full p-2 mb-4 rounded bg-slate-700"
         />
 
         {/* TIME */}
@@ -285,9 +287,7 @@ export default function BookInterview() {
               className="w-full p-2 rounded bg-slate-700"
             >
               {hours.map((h) => (
-                <option key={h} value={pad(h)}>
-                  {pad(h)}
-                </option>
+                <option key={h} value={pad(h)}>{pad(h)}</option>
               ))}
             </select>
           </div>
@@ -301,9 +301,7 @@ export default function BookInterview() {
               className="w-full p-2 rounded bg-slate-700"
             >
               {minutesArr.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
+                <option key={m} value={m}>{m}</option>
               ))}
             </select>
           </div>
@@ -314,20 +312,18 @@ export default function BookInterview() {
         <select
           value={duration}
           onChange={(e) => setDuration(Number(e.target.value))}
-          className="w-full p-2 rounded bg-slate-700 mb-4"
+          className="w-full p-2 mb-4 rounded bg-slate-700"
         >
           <option value={30}>30 Minutes</option>
           <option value={60}>1 Hour</option>
         </select>
 
-        {/* Available Desks */}
-        <label className="block mb-2">Available Systems</label>
+        {/* Desks */}
+        <label>Available Systems</label>
         {loadingDesks ? (
-          <div className="px-3 py-2 mb-4 rounded bg-slate-700 text-white">
-            Checking…
-          </div>
+          <div className="p-2 mb-4 bg-slate-700 rounded">Checking...</div>
         ) : availableDesks.length === 0 ? (
-          <div className="px-3 py-2 mb-4 rounded bg-red-800 text-white">
+          <div className="p-2 mb-4 bg-red-800 rounded text-white">
             No systems available for selected time.
           </div>
         ) : (
@@ -338,9 +334,7 @@ export default function BookInterview() {
           >
             <option value="">-- Select System --</option>
             {availableDesks.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
+              <option key={d} value={d}>{d}</option>
             ))}
           </select>
         )}
@@ -354,9 +348,7 @@ export default function BookInterview() {
         >
           <option value="">-- Select Company Type --</option>
           {COMPANY_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
 
@@ -369,13 +361,11 @@ export default function BookInterview() {
         >
           <option value="">-- Select Round --</option>
           {ROUND_OPTIONS.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
+            <option key={r} value={r}>{r}</option>
           ))}
         </select>
 
-        {/* Technology */}
+        {/* Tech */}
         <label>Technology</label>
         <select
           value={technology}
@@ -384,22 +374,12 @@ export default function BookInterview() {
         >
           <option value="">-- Select Technology --</option>
           {TECH_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
+            <option key={t} value={t}>{t}</option>
           ))}
         </select>
 
-        {/* Submit */}
-        <button
-          className="
-            px-4 py-2 w-full rounded-xl
-            bg-cyan-600 hover:bg-cyan-500 text-white
-            font-semibold shadow-[0_0_12px_rgba(0,255,255,0.5)]
-          "
-          disabled={loading}
-        >
-          {loading ? "Booking…" : "Book Slot"}
+        <button className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 rounded-xl text-white">
+          Book Slot
         </button>
       </form>
     </>
@@ -410,7 +390,7 @@ export default function BookInterview() {
 const styles = `
 @keyframes fadeIn { from {opacity:0} to {opacity:1} }
 @keyframes scaleIn { 0%{transform:scale(.7);opacity:0} 100%{transform:scale(1);opacity:1}}
-.animate-fadeIn { animation: fadeIn .2s ease-out }
+.animate-fadeIn { animation: fadeIn .25s ease-out }
 .animate-scaleIn { animation: scaleIn .25s ease-out }
 `;
 document.head.insertAdjacentHTML("beforeend", `<style>${styles}</style>`);
