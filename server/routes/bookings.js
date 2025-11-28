@@ -334,7 +334,7 @@ router.put("/:id", auth, async (req, res) => {
     if (booking.student.toString() !== req.user._id.toString())
       return res.status(403).json({ msg: "Not your booking" });
 
-    const { slotStart, slotEnd, company, round, technology } = req.body;
+    const { slotStart, slotEnd, company, round, technology, desk } = req.body;
 
     const s = istStringToUTC(slotStart);
     const e = istStringToUTC(slotEnd);
@@ -345,15 +345,38 @@ router.put("/:id", auth, async (req, res) => {
     if (sIST < nowIST)
       return res.status(400).json({ msg: "Cannot edit past slots." });
 
+    // Validate time format
+    if (!isAlignedTo30IST(s) || !isAlignedTo30IST(e))
+      return res.status(400).json({ msg: "Time must be :00 or :30" });
+
+    // Desk validation
+    if (!ALL_DESKS.includes(desk))
+      return res.status(400).json({ msg: "Invalid desk" });
+
+    // Check desk overlap (excluding itself)
+    const deskOverlap = await Booking.findOne({
+      _id: { $ne: booking._id },
+      desk,
+      slotStart: { $lt: e },
+      slotEnd: { $gt: s }
+    });
+
+    if (deskOverlap)
+      return res.status(400).json({ msg: `Desk ${desk} already booked in this window` });
+
+    // Update values
     booking.slotStart = s;
     booking.slotEnd = e;
     booking.company = company;
     booking.round = round;
     booking.technology = technology;
+    booking.desk = desk;  // ⭐ FIXED
 
     await booking.save();
     res.json(booking);
-  } catch {
+
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });

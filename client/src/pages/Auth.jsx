@@ -160,22 +160,20 @@ export default function Auth() {
           <div className="flex mb-6">
             <button
               onClick={() => switchMode("login")}
-              className={`flex-1 py-2 text-lg font-bold rounded-l-xl ${
-                mode === "login"
-                  ? "bg-cyan-600 text-white"
-                  : "bg-slate-700 text-slate-300"
-              }`}
+              className={`flex-1 py-2 text-lg font-bold rounded-l-xl ${mode === "login"
+                ? "bg-cyan-600 text-white"
+                : "bg-slate-700 text-slate-300"
+                }`}
             >
               Login
             </button>
 
             <button
               onClick={() => switchMode("signup")}
-              className={`flex-1 py-2 text-lg font-bold rounded-r-xl ${
-                mode === "signup"
-                  ? "bg-cyan-600 text-white"
-                  : "bg-slate-700 text-slate-300"
-              }`}
+              className={`flex-1 py-2 text-lg font-bold rounded-r-xl ${mode === "signup"
+                ? "bg-cyan-600 text-white"
+                : "bg-slate-700 text-slate-300"
+                }`}
             >
               Signup
             </button>
@@ -206,18 +204,41 @@ export default function Auth() {
                 />
                 <FloatingInput
                   id="phone"
-                  label="Phone"
+                  label="Phone Number"
+                  type="tel"
                   value={form.phone}
-                  onChange={(e) => update("phone", e.target.value)}
+                  maxLength={10}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, ""); // remove non-digits
+                    if (v.length <= 10) update("phone", v);
+                  }}
                   required
                 />
-                <FloatingInput
-                  id="course"
-                  label="Course"
-                  value={form.course}
-                  onChange={(e) => update("course", e.target.value)}
-                  required
-                />
+                <div>
+                  <label className="text-slate-300 text-sm mb-1 block">Course</label>
+                  <select
+                    id="course"
+                    value={form.course}
+                    onChange={(e) => update("course", e.target.value)}
+                    required
+                    className="w-full rounded-xl bg-slate-700 px-4 py-3 text-white 
+               focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  >
+                    <option value="">-- Select Course --</option>
+                    <option>Python</option>
+                    <option>Java</option>
+                    <option>MERN Stack</option>
+                    <option>DevOps</option>
+                    <option>.Net</option>
+                    <option>CyberArk</option>
+                    <option>Cyber Security</option>
+                    <option>SAP - FICO</option>
+                    <option>SAP - ABAP</option>
+                    <option>SAP - HANA</option>
+                    <option>SAP - BASIS</option>
+                    <option>AI & ML</option>
+                  </select>
+                </div>
               </div>
             )}
 
@@ -233,7 +254,7 @@ export default function Auth() {
 
             <FloatingInput
               id="password"
-              label="Password"
+              label="New Password"
               type="password"
               value={form.password}
               onChange={(e) => update("password", e.target.value)}
@@ -262,8 +283,8 @@ export default function Auth() {
                   ? "Logging in..."
                   : "Verifying..."
                 : mode === "login"
-                ? "Login"
-                : "Sign Up"}
+                  ? "Login"
+                  : "Sign Up"}
             </button>
           </form>
         </div>

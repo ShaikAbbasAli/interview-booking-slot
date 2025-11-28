@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { socket } from "../socket";
+
 
 /* ---------------------------- Reusable Neon Modal ---------------------------- */
 function NeonModal({ show, message, yesText, noText, onAction }) {
@@ -64,9 +66,20 @@ export default function AdminStudents() {
     }
   }
 
-  useEffect(() => {
-    loadStudents();
-  }, []);
+  // FIRST LOAD — REQUIRED
+useEffect(() => {
+  loadStudents();
+}, []);
+
+// SOCKET LISTENER
+useEffect(() => {
+  socket.on("student-verified", () => {
+    loadStudents();   // auto refresh admin dashboard
+  });
+
+  return () => socket.off("student-verified");
+}, []);
+
 
   /* SEARCH LOGIC */
   useEffect(() => {

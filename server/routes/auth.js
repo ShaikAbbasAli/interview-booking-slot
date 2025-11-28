@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
 import { sendOTPEmail, sendResetPasswordEmail } from '../utils/mailer.js';
+import { io } from '../server.js';
+
 
 const router = express.Router();
 
@@ -36,7 +38,11 @@ router.post('/signup', async (req, res) => {
   // ----------------------------
   const nameRegex = /^[A-Za-z ]+$/;
   const phoneRegex = /^[0-9]{10}$/;
-  const courseRegex = /^[A-Za-z ]+$/;
+  const COURSE_LIST = [
+  "Python","Java","MERN Stack","DevOps",".Net","CyberArk",
+  "Cyber Security","SAP - FICO","SAP - ABAP","SAP - HANA",
+  "SAP - BASIS","AI & ML"
+];
 
   if (!nameRegex.test(name)) {
     return res.status(400).json({ msg: "Full name can contain only letters" });
@@ -46,9 +52,9 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({ msg: "Phone must be 10 digits" });
   }
 
-  if (!courseRegex.test(course)) {
-    return res.status(400).json({ msg: "Course must contain only letters" });
-  }
+  if (!COURSE_LIST.includes(course)) {
+  return res.status(400).json({ msg: "Invalid course selected" });
+}
 
   // Email validation
   const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
@@ -142,60 +148,58 @@ router.post('/resend-otp', async (req, res) => {
   }
 });
 
+
 // VERIFY OTP (AUTO LOGIN AFTER SUCCESS)
 router.post('/verify-otp', async (req, res) => {
   try {
     const { userId, otp } = req.body;
-    if (!userId || !otp) return res.status(400).json({ msg: 'userId and otp required' });
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ msg: 'User not found' });
-    if (user.emailVerified) return res.status(400).json({ msg: 'Email already verified' });
-
-    if (!user.otp || !user.otpExpires)
-      return res.status(400).json({ msg: 'No OTP requested' });
-
-    if (new Date() > user.otpExpires)
-      return res.status(400).json({ msg: 'OTP expired' });
 
     if (otp !== user.otp)
       return res.status(400).json({ msg: 'Invalid OTP' });
 
-    // ---------------------------
-    // ⭐ Generate sequential employee_id
-    // ---------------------------
-    const count = await User.countDocuments({
+    // ----- Generate Employee ID -----
+    const lastUser = await User.findOne({
       role: "student",
-      emailVerified: true
-    });
+      emailVerified: true,
+      employee_id: { $regex: /^AIPL-/ }
+    }).sort({ employee_id: -1 }).lean();
 
-    const nextNumber = String(count + 1).padStart(4, "0");
-    const newID = `AIKYA-STU-${nextNumber}`;
+    let nextNumber = 1102;
+    if (lastUser) {
+      nextNumber = parseInt(lastUser.employee_id.split("-")[1]) + 1;
+    }
 
-    // ---------------------------
-    // Update user final details
-    // ---------------------------
+    user.employee_id = `AIPL-${nextNumber}`;
+
+    // Final update
     user.emailVerified = true;
     user.isTemp = false;
     user.otp = null;
     user.otpExpires = null;
-    user.employee_id = newID;
 
     await user.save();
 
+    // ⭐🔥 BROADCAST TO ADMIN DASHBOARD
+    io.emit("student-verified", {
+      studentId: user._id,
+      name: user.name,
+      employee_id: user.employee_id,
+      course: user.course,
+    });
+
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
 
-    return res.json({
-      msg: "Email verified",
-      token,
-      user
-    });
+    return res.json({ msg: "Email verified", token, user });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
+
 
 
 // LOGIN (unchanged) — only allow if emailVerified === true

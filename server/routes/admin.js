@@ -4,6 +4,8 @@ import auth from '../middleware/auth.js';
 import role from '../middleware/role.js';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
+import { notifyStudentApproved } from "../server.js";
+
 
 const router = express.Router();
 
@@ -26,11 +28,16 @@ router.get("/students", auth, async (req, res) => {
 router.put('/students/:id/approve', auth, role('admin'), async (req, res) => {
   const student = await User.findById(req.params.id);
   if (!student) return res.status(404).json({ msg: 'Student not found' });
-  if (student.role !== 'student') return res.status(400).json({ msg: 'Not a student' });
+
   student.status = 'approved';
   await student.save();
-  res.json({ msg: 'Student approved', student: await User.findById(student._id).select('-password') });
+
+  // 🔥 WebSocket broadcast
+  notifyStudentApproved(student._id.toString());
+
+  res.json({ msg: 'Student approved', student });
 });
+
 
 // admin: remove student (delete user + bookings)
 router.delete('/students/:id', auth, role('admin'), async (req, res) => {

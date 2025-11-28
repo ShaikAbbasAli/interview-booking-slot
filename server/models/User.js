@@ -1,5 +1,20 @@
 import mongoose from "mongoose";
 
+const COURSE_LIST = [
+  "Python",
+  "Java",
+  "MERN Stack",
+  "DevOps",
+  ".Net",
+  "CyberArk",
+  "Cyber Security",
+  "SAP - FICO",
+  "SAP - ABAP",
+  "SAP - HANA",
+  "SAP - BASIS",
+  "AI & ML"
+];
+
 const UserSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -16,8 +31,19 @@ const UserSchema = new mongoose.Schema(
       ],
     },
 
-    phone: String,
-    course: String,
+    phone: {
+      type: String,
+      required: true,
+      match: [/^[0-9]{10}$/, "Phone number must be 10 digits"],
+    },
+
+    // ⭐ Course must match dropdown values
+    course: {
+      type: String,
+      enum: COURSE_LIST,
+      required: true,
+    },
+
     password: { type: String, required: true },
 
     employee_id: {
@@ -47,7 +73,7 @@ const UserSchema = new mongoose.Schema(
     otpExpires: Date,
     otpRequests: { type: [Date], default: [] },
 
-    // ⭐ New field — User stored but not fully active yet
+    // ⭐ User is temporary until OTP verified
     isTemp: { type: Boolean, default: true }
   },
   { timestamps: true }

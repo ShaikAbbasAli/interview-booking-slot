@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { socket } from "../socket";
 
 export default function Dashboard() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
@@ -7,24 +8,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   /* ------------------------------------------------------
-     🔥 AUTO-REFRESH USER STATUS EVERY 5 SECONDS
+     🔥 REAL-TIME STATUS UPDATE VIA WEBSOCKET
   ------------------------------------------------------ */
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
+    socket.on("student-approved", async (data) => {
+      if (data.studentId === user._id) {
         const res = await API.get("/auth/me");
-        const updatedUser = res.data;
 
-        // Update localStorage + state
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        setUser(updatedUser);
-      } catch (err) {
-        console.error("Auto-refresh error:", err);
+        localStorage.setItem("user", JSON.stringify(res.data));
+        setUser(res.data);
       }
-    }, 5000);
+    });
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => socket.off("student-approved");
+  }, [user]);
 
   /* ------------------------------------------------------
      LOAD TODAY'S BOOKINGS
@@ -43,7 +40,6 @@ export default function Dashboard() {
       const yyyy = now.getFullYear();
       const mm = String(now.getMonth() + 1).padStart(2, "0");
       const dd = String(now.getDate()).padStart(2, "0");
-
       const todayStr = `${yyyy}-${mm}-${dd}`;
 
       const todays = allBookings.filter((b) =>
@@ -52,7 +48,6 @@ export default function Dashboard() {
 
       setTodayBookings(todays.length);
     } catch (err) {
-      console.error(err);
       setTodayBookings(0);
     } finally {
       setLoading(false);
@@ -79,7 +74,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* STATUS CARD */}
+        {/* STATUS */}
         <div className="p-4 bg-slate-800 rounded-xl shadow">
           <div className="text-sm text-slate-400">Status</div>
 
@@ -96,7 +91,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* BOOK SLOT BUTTON */}
+        {/* BOOK SLOT */}
         <div className="p-4 bg-slate-800 rounded-xl shadow flex items-center justify-center">
           <a
             href="/book"

@@ -1,4 +1,4 @@
-// TodayBookings.jsx — Full Updated Version (No wrap, no scrollbar)
+// TodayBookings.jsx — Updated with Visible Scrollbar
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { format, parse } from "date-fns";
@@ -46,7 +46,7 @@ export default function TodayBookings() {
     loadData(selectedDate);
   }, [selectedDate]);
 
-  /* ------------------ Filters ------------------ */
+  /* ------------------ Search Filters ------------------ */
   const filteredRows = rows.filter(
     (r) =>
       r.studentName.toLowerCase().includes(search.toLowerCase()) ||
@@ -99,7 +99,6 @@ export default function TodayBookings() {
     });
 
     const csv = [header.join(","), ...csvRows].join("\n");
-
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
 
@@ -162,7 +161,11 @@ export default function TodayBookings() {
             {filteredRows.length}
           </div>
 
-          <div className="bg-slate-900/70 border border-slate-700 rounded-xl overflow-x-auto hide-scrollbar">
+          {/* Scrollable Table */}
+          <div
+            className="bg-slate-900/70 border border-slate-700 rounded-xl overflow-x-auto custom-scrollbar"
+            style={{ maxHeight: "450px", overflowY: "auto" }}
+          >
             <table className="min-w-max w-full text-sm table-auto">
               <thead className="bg-slate-900 text-cyan-300 border-b border-slate-700">
                 <tr className="text-center">
@@ -201,33 +204,18 @@ export default function TodayBookings() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         {startIndex + idx + 1}
                       </td>
-
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {r.studentName}
-                      </td>
-
+                      <td className="px-4 py-3 whitespace-nowrap">{r.studentName}</td>
                       <td className="px-4 py-3 whitespace-nowrap font-mono text-cyan-300">
                         {r.employee_id}
                       </td>
-
                       <td className="px-4 py-3 whitespace-nowrap">
                         {format(s, "hh:mm a")} – {format(e, "hh:mm a")}
                       </td>
-
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {r.duration} min
-                      </td>
-
+                      <td className="px-4 py-3 whitespace-nowrap">{r.duration} min</td>
                       <td className="px-4 py-3 whitespace-nowrap">{r.round}</td>
-
                       <td className="px-4 py-3 whitespace-nowrap">{r.company}</td>
-
                       <td className="px-4 py-3 whitespace-nowrap">{r.technology}</td>
-
-                      <td className="px-4 py-3 whitespace-nowrap font-mono">
-                        {r.desk || "-"}
-                      </td>
-
+                      <td className="px-4 py-3 whitespace-nowrap font-mono">{r.desk}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {format(created, "dd MMM, hh:mm a")}
                       </td>
@@ -270,6 +258,25 @@ export default function TodayBookings() {
           </div>
         </>
       )}
+
+      {/* Custom Scrollbar CSS */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 10px;
+          width: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #1e293b;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #06b6d4;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #0891b2;
+        }
+      `}</style>
     </div>
   );
 }
