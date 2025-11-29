@@ -50,7 +50,8 @@ jobs:
       - name: Deploy to Cloud Run
         run: >
           gcloud run deploy backend
-          --image=gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          --image=gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }}
           --region=${{ secrets.GCP_REGION }}
           --platform=managed
           --allow-unauthenticated
+
