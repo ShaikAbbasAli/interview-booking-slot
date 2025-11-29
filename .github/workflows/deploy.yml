@@ -28,12 +28,11 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker --quiet
 
-      # Optional debug step — remove when happy
       - name: Debug computed tags
         run: |
-          echo "GCP_PROJECT='${{ secrets.GCP_PROJECT }}'"
+          echo "GCP_PROJECT='${{ secrets.GCP_PROJECT }}' (length: $(echo -n "${{ secrets.GCP_PROJECT }}" | wc -c))"
           echo "IMAGE_NAME='${{ env.IMAGE_NAME }}'"
-          echo "GITHUB_SHA='${{ github.sha }}'"
+          echo "GITHUB_SHA='${{ github.sha }}' (length: $(echo -n "${{ github.sha }}" | wc -c))"
           echo "Tags:"
           echo "  gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           echo "  gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:latest"
@@ -47,7 +46,28 @@ jobs:
             gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
             gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Deploy to Cloud Run
-        run: gcloud run deploy backend --image=gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }} --region=${{ secrets.GCP_REGION }} --platform=managed --allow-unauthenticated
+      - name: Deploy to Cloud Run (robust)
+        shell: bash
+        env:
+          # Trim any trailing newline/CR LF from secrets to avoid accidental newlines:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT }}
+          REGION: ${{ secrets.GCP_REGION }}
+          SHA: ${{ github.sha }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          set -xeuo pipefail
 
+          # Trim CR/LF from secrets (in case they were saved with trailing newline)
+          PROJECT_ID_CLEAN=$(printf "%s" "$PROJECT_ID" | tr -d '\r\n')
+          REGION_CLEAN=$(printf "%s" "$REGION" | tr -d '\r\n')
+          SHA_CLEAN=$(printf "%s" "$SHA" | tr -d '\r\n')
 
+          IMAGE="gcr.io/${PROJECT_ID_CLEAN}/${IMAGE_NAME}:${SHA_CLEAN}"
+
+          echo "About to run: gcloud run deploy backend --image=\"$IMAGE\" --region=\"$REGION_CLEAN\" --platform=managed --allow-unauthenticated"
+          # Run the deploy as a single command (quoted to avoid accidental splitting)
+          gcloud run deploy backend \
+            --image="$IMAGE" \
+            --region="$REGION_CLEAN" \
+            --platform=managed \
+            --allow-unauthenticated
