@@ -100,7 +100,10 @@ async function start() {
   await connectDB(process.env.MONGO_URI);
   await seedAdmin();
 
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  //server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  //added for deployment
+  server.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
+
 }
 
 start();
