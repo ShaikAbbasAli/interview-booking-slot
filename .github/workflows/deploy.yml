@@ -29,7 +29,7 @@ jobs:
         run: gcloud auth configure-docker --quiet
 
       # Optional debug step — remove when happy
-      - name: Debug: computed tags
+      - name: Debug computed tags
         run: |
           echo "GCP_PROJECT='${{ secrets.GCP_PROJECT }}'"
           echo "IMAGE_NAME='${{ env.IMAGE_NAME }}'"
