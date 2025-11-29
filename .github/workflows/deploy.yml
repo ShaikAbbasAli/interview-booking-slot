@@ -22,7 +22,8 @@ jobs:
 
       - name: Build & push image using Cloud Build
         run: |
-          gcloud builds submit ./server --tag gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }}
+          gcloud builds submit ./server \
+            --tag gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }}
 
       - name: Deploy to Cloud Run
         run: |
@@ -31,8 +32,3 @@ jobs:
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated
-
-      - name: Cleanup service account key
-        if: always()
-        run: |
-          rm -f $HOME/key.json || true
