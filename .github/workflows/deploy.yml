@@ -1,4 +1,5 @@
 name: Deploy to Cloud Run
+
 on:
   push:
     branches: ["main"]
@@ -8,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: backend
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,13 +28,13 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker --quiet
 
-      - name: Debug: show computed tags
+      - name: Debug show computed tags
         run: |
           echo "GCP_PROJECT='${{ secrets.GCP_PROJECT }}'"
           echo "GITHUB_SHA='${{ github.sha }}'"
           echo "Computed tags:"
-          echo "  gcr.io/${{ secrets.GCP_PROJECT }}/${IMAGE_NAME}:${{ github.sha }}"
-          echo "  gcr.io/${{ secrets.GCP_PROJECT }}/${IMAGE_NAME}:latest"
+          echo "  gcr.io/${{ secrets.GCP_PROJECT }}/$IMAGE_NAME:${{ github.sha }}"
+          echo "  gcr.io/${{ secrets.GCP_PROJECT }}/$IMAGE_NAME:latest"
 
       - name: Build and push image
         uses: docker/build-push-action@v5
@@ -40,16 +42,13 @@ jobs:
           context: ./server
           push: true
           tags: |
-            gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:latest
-
-      - name: (optional) List pushed image (debug)
-        run: docker images | head -n 20
+            gcr.io/${{ secrets.GCP_PROJECT }}/$IMAGE_NAME:${{ github.sha }}
+            gcr.io/${{ secrets.GCP_PROJECT }}/$IMAGE_NAME:latest
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy backend \
-            --image gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --image gcr.io/${{ secrets.GCP_PROJECT }}/$IMAGE_NAME:${{ github.sha }} \
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated
