@@ -28,7 +28,7 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker --quiet
 
-      - name: Debug: show computed tags
+      - name: Debug show computed tags
         run: |
           echo "GCP_PROJECT='${{ secrets.GCP_PROJECT }}'"
           echo "IMAGE_NAME='${{ env.IMAGE_NAME }}'"
