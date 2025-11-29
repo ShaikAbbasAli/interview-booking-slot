@@ -1,5 +1,5 @@
+# .github/workflows/deploy.yml
 name: Deploy to Cloud Run
-
 on:
   push:
     branches: ["main"]
@@ -7,10 +7,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         env:
@@ -26,9 +24,9 @@ jobs:
 
       - name: Build & push image using Cloud Build
         run: |
-          # ensure fully-qualified image name: gcr.io/<project>/backend:<sha>
           gcloud builds submit ./server \
-            --tag gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }}
+            --tag gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }} \
+            --project=${{ secrets.GCP_PROJECT }}
 
       - name: Deploy to Cloud Run
         run: |
