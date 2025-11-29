@@ -20,8 +20,13 @@ jobs:
           gcloud auth activate-service-account --key-file=$HOME/key.json
           gcloud config set project ${{ secrets.GCP_PROJECT }}
 
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker --quiet
+
       - name: Build & push image using Cloud Build
         run: |
+          # ensure fully-qualified image name: gcr.io/<project>/backend:<sha>
           gcloud builds submit ./server \
             --tag gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }}
 
