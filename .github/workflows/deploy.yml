@@ -7,6 +7,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: backend
 
     steps:
       - name: Checkout source
@@ -20,11 +22,16 @@ jobs:
           gcloud auth activate-service-account --key-file=$HOME/key.json
           gcloud config set project ${{ secrets.GCP_PROJECT }}
 
-      - name: Debug tags
+      - name: Debug tags (prints exactly what will be used by buildx)
         run: |
-          echo "Expected tag:"
-          echo "gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-
+          echo "---- DEBUG: Tag expansion ----"
+          echo "GCP_PROJECT (raw secret): '${{ secrets.GCP_PROJECT }}'"
+          echo "IMAGE_NAME (env): '${{ env.IMAGE_NAME }}'"
+          echo "GITHUB_SHA: '${{ github.sha }}'"
+          echo "Computed tags (sha & latest):"
+          echo "  gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "  gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:latest"
+          echo "---- END DEBUG ----"
 
       - name: Build and push image
         uses: docker/build-push-action@v5
@@ -35,11 +42,10 @@ jobs:
             gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
             gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:latest
 
-
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy backend \
-            --image gcr.io/${{ secrets.GCP_PROJECT }}/backend:${{ github.sha }} \
+            --image gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated
