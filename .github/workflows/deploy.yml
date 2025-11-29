@@ -42,8 +42,8 @@ jobs:
           context: ./server
           push: true
           tags: |
-            gcr.io/${{ secrets.GCP_PROJECT }}/$IMAGE_NAME:${{ github.sha }}
-            gcr.io/${{ secrets.GCP_PROJECT }}/$IMAGE_NAME:latest
+            gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            gcr.io/${{ secrets.GCP_PROJECT }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Deploy to Cloud Run
         run: |
